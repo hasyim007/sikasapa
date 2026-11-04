@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0F2A56">
+<meta name="description" content="Cek status pembayaran ekstrakurikuler putra/putri Anda di SDN 01 Papahan, tanpa perlu login.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SIKasapa">
+<meta property="og:title" content="SIKasapa — Sistem Informasi Keuangan Ekstrakurikuler SDN 01 Papahan">
+<meta property="og:description" content="Cek status pembayaran ekstrakurikuler putra/putri Anda, tanpa perlu login.">
+<meta property="og:url" content="__BASE_URL__/">
+<meta property="og:image" content="__BASE_URL__/assets/og-image.png">
+<meta property="og:image:secure_url" content="__BASE_URL__/assets/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Logo SIKasapa — Sistem Informasi Keuangan Ekstrakurikuler SDN 01 Papahan">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="__BASE_URL__/assets/og-image.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>SIKasapa — Sistem Informasi Keuangan Ekstrakurikuler SDN 01 Papahan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-950:#0B1E3D;
+    --navy-900:#0F2A56;
+    --navy-800:#123B78;
+    --navy-700:#1A4E96;
+    --blue-600:#2563EB;
+    --blue-500:#1769D1;
+    --blue-400:#5B9BF0;
+    --blue-100:#DCEBFF;
+    --emerald-500:#0D9488;
+    --emerald-400:#059669;
+    --rose-500:#E11D48;
+    --amber-400:#2563EB;
+    --amber-300:#3B82F6;
+  }
+  *{font-family:'Plus Jakarta Sans',sans-serif;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(37,99,235,0.14), transparent 60%),
+      radial-gradient(1000px 500px at 110% 10%, rgba(91,155,240,0.12), transparent 55%),
+      linear-gradient(180deg, #EEF4FF 0%, #F7FAFF 45%, #FFFFFF 100%);
+    min-height:100vh;
+  }
+  .glass{
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px -12px rgba(30,64,175,0.10);
+  }
+  .glass-strong{
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(255,255,255,0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 8px 32px -12px rgba(30,64,175,0.12);
+  }
+  .hidden{ display:none; }
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(37,99,235,0.18);border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(37,99,235,0.32);}
+
+  .nav-item{position:relative;transition:all .25s cubic-bezier(.4,0,.2,1);}
+  .nav-item .nav-icon{transition:transform .25s cubic-bezier(.4,0,.2,1);}
+  .nav-item:hover .nav-icon{transform:translateX(2px);}
+  .nav-item.active{
+    background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(91,155,240,0.16));
+    border: 1px solid rgba(37,99,235,0.28);
+  }
+  .nav-item.active .nav-dot{opacity:1;transform:scale(1);}
+  .nav-dot{opacity:0;transform:scale(0);transition:all .25s ease;}
+
+  .view-enter{animation: viewFade .38s cubic-bezier(.16,1,.3,1);}
+  @keyframes viewFade{
+    from{opacity:0; transform: translateY(10px) scale(.99);}
+    to{opacity:1; transform: translateY(0) scale(1);}
+  }
+  .stagger > *{animation: riseIn .5s cubic-bezier(.16,1,.3,1) backwards;}
+  .stagger > *:nth-child(1){animation-delay:.02s}
+  .stagger > *:nth-child(2){animation-delay:.07s}
+  .stagger > *:nth-child(3){animation-delay:.12s}
+  .stagger > *:nth-child(4){animation-delay:.17s}
+  .stagger > *:nth-child(5){animation-delay:.22s}
+  @keyframes riseIn{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+
+  .sidebar-slide{transition: transform .35s cubic-bezier(.4,0,.2,1);}
+  .card-hover{transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;}
+  .card-hover:hover{transform: translateY(-3px); border-color: rgba(37,99,235,0.35); box-shadow: 0 20px 40px -20px rgba(30,64,175,0.28);}
+
+  .btn-primary{
+    background: linear-gradient(135deg, var(--blue-600), var(--blue-400));
+    color:#FFFFFF; font-weight:700;
+    transition:all .2s ease;
+  }
+  .btn-primary:hover{filter:brightness(1.08); transform:translateY(-1px); box-shadow:0 10px 25px -10px rgba(37,99,235,0.55);}
+  .btn-primary:active{transform:translateY(0) scale(.97);}
+
+  .btn-secondary{
+    background: rgba(15,30,61,0.045);
+    border:1.5px solid rgba(15,30,61,0.10);
+    color:#334155; font-weight:600;
+    transition: all .18s ease;
+  }
+  .btn-secondary:hover{ background: rgba(15,30,61,0.08); border-color: rgba(15,30,61,0.18); }
+  .btn-secondary:active{ transform: scale(.97); }
+
+  .input-glass{
+    background: rgba(255,255,255,0.85);
+    border:1.5px solid rgba(15,30,61,0.10);
+    color:#0F1E3D;
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  }
+  .input-glass:hover{ border-color: rgba(37,99,235,0.28); }
+  .input-glass:focus{outline:none; border-color:var(--blue-600); box-shadow:0 0 0 3px rgba(37,99,235,0.14); background:#FFFFFF;}
+  .input-glass::placeholder{color:rgba(15,30,61,0.32);}
+  .input-glass:disabled{opacity:.55; cursor:not-allowed;}
+
+  .modal-panel{
+    background:#FFFFFF;
+    border: 1px solid rgba(15,30,61,0.08) !important;
+    box-shadow: 0 28px 60px -22px rgba(11,30,61,0.30), 0 10px 24px -12px rgba(11,30,61,0.16);
+  }
+  .modal-header{
+    background:#FFFFFF;
+  }
+  .modal-close-btn{ transition: all .18s ease; }
+  .modal-close-btn:hover{ background: rgba(37,99,235,0.10); color:var(--blue-600); }
+
+  .badge{font-size:11px; font-weight:700; letter-spacing:.02em;}
+  .table-row:hover{background:rgba(37,99,235,0.045);}
+  .tx-row{transition:background-color .18s ease;}
+  .tx-row:hover{background:rgba(37,99,235,0.045);}
+
+  #sidebarOverlay{transition:opacity .3s ease;}
+
+  [data-modal]{transition:opacity .25s ease;}
+  .modal-panel{transition:transform .3s cubic-bezier(.16,1,.3,1), opacity .3s ease;}
+
+  /* ===========================================================
+     HALAMAN PUBLIK — modern & elegan, layar tetap (tanpa scroll
+     halaman). Tampilan awal selalu muat satu layar di HP maupun
+     laptop; hasil pembayaran masuk dengan geser ke samping.
+     Diberi ruang lingkup di #publicScreen supaya tidak mengubah
+     gaya dashboard bendahara/kepsek.
+     =========================================================== */
+  html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
+  body{ background:#F4F7FC; }
+
+  #publicScreen{
+    --pub-ink:#0A1A33;
+    --pub-ink-soft:rgba(10,26,51,0.64);
+    --pub-ink-faint:rgba(10,26,51,0.44);
+    --pub-blue:#1D5FD6;
+    --pub-blue-deep:#0E3A82;
+    --pub-blue-light:#6FA3F2;
+    --pub-teal:#0F9A8B;
+    --pub-line:rgba(10,26,51,0.09);
+    --pub-ease:cubic-bezier(.65,0,.2,1);
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+    color:var(--pub-ink);
+    position:fixed; inset:0;
+    height:100vh; height:100dvh;
+    display:flex; flex-direction:column; overflow:hidden;
+    background:
+      radial-gradient(900px 520px at 4% -10%, rgba(29,95,214,0.13), transparent 62%),
+      radial-gradient(760px 480px at 104% 8%, rgba(15,154,139,0.11), transparent 58%),
+      radial-gradient(900px 520px at 55% 118%, rgba(29,95,214,0.09), transparent 62%),
+      linear-gradient(180deg,#F3F7FD 0%,#F8FAFE 55%,#FFFFFF 100%);
+  }
+  /* pola titik halus — memberi tekstur tanpa mengganggu keterbacaan */
+  #publicScreen::before{
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background-image:radial-gradient(rgba(10,26,51,0.07) 1px, transparent 1px);
+    background-size:26px 26px;
+    -webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
+            mask-image:radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
+    opacity:.55;
+  }
+  /* reset lokal — halaman ini tidak boleh bergantung pada preflight Tailwind CDN */
+  #publicScreen, #publicScreen *, #publicScreen *::before, #publicScreen *::after{ box-sizing:border-box; }
+  #publicScreen p, #publicScreen h1, #publicScreen h2{ margin:0; }
+  #publicScreen button{ background:none; border:0; padding:0; color:inherit; }
+  #publicScreen select{ margin:0; }
+  #publicScreen svg{ display:block; }
+  #publicScreen > *{ position:relative; z-index:1; }
+  #publicScreen button{ cursor:pointer; font-family:inherit; }
+
+  #publicScreen .pub-glass{
+    background:rgba(255,255,255,0.62);
+    -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  }
+  #publicScreen .pub-glass-strong{
+    background:rgba(255,255,255,0.82);
+    border:1px solid rgba(255,255,255,0.95);
+    -webkit-backdrop-filter:blur(26px); backdrop-filter:blur(26px);
+    box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 30px 70px -34px rgba(10,26,51,0.30), 0 10px 28px -16px rgba(10,26,51,0.12);
+  }
+
+  /* ---------- Header ---------- */
+  #publicScreen .pub-header{ flex:none; border-bottom:1px solid var(--pub-line); }
+  #publicScreen .pub-header-inner{ max-width:1240px; margin:0 auto; padding:clamp(10px,1.8vh,18px) clamp(16px,4vw,40px); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  #publicScreen .pub-brand{ display:flex; align-items:center; gap:12px; min-width:0; }
+  #publicScreen .pub-crest{ width:40px; height:40px; border-radius:13px; background:linear-gradient(135deg,var(--pub-blue-deep),var(--pub-blue) 60%,var(--pub-blue-light)); display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; box-shadow:0 8px 18px -8px rgba(29,95,214,0.65), inset 0 0 0 1px rgba(255,255,255,0.18); }
+  #publicScreen .pub-brand-name{ font-weight:800; font-size:15px; letter-spacing:.02em; line-height:1.15; }
+  #publicScreen .pub-brand-sub{ font-size:11px; color:var(--pub-ink-soft); letter-spacing:.02em; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #publicScreen .pub-btn-icon{
+    width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    color:var(--pub-blue-deep); background:rgba(255,255,255,0.8); border:1px solid var(--pub-line);
+    box-shadow:0 6px 16px -10px rgba(10,26,51,0.35);
+    transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease, border-color .18s ease;
+  }
+  #publicScreen .pub-btn-icon:hover{ transform:translateY(-1px); background:var(--pub-blue-deep); color:#fff; border-color:transparent; box-shadow:0 12px 24px -12px rgba(14,58,130,0.6); }
+  #publicScreen .pub-btn-icon:active{ transform:scale(.94); }
+
+  /* ---------- Panggung geser (dua panel berdampingan) ---------- */
+  #publicScreen .pub-stage{ flex:1 1 auto; min-height:0; position:relative; overflow:hidden; }
+  #publicScreen .pub-track{ display:flex; width:200%; height:100%; transform:translate3d(0,0,0); transition:transform .7s var(--pub-ease); will-change:transform; }
+  #publicScreen.show-result .pub-track{ transform:translate3d(-50%,0,0); }
+  #publicScreen .pub-pane{ flex:0 0 50%; width:50%; height:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; display:flex; transition:opacity .5s ease, transform .7s var(--pub-ease); scrollbar-width:thin; }
+  #publicSearchPane{ padding:clamp(8px,2vh,28px) clamp(18px,5vw,56px); }
+  #publicScreen.show-result #publicSearchPane{ opacity:0; transform:translateX(-6%); }
+  #publicResultSection{ padding:clamp(14px,3vh,32px) clamp(16px,4vw,40px) clamp(20px,4vh,40px); opacity:0; transform:translateX(6%); }
+  #publicScreen.show-result #publicResultSection{ opacity:1; transform:none; }
+
+  /* ---------- Panel pencarian ---------- */
+  #publicScreen .pub-hero-inner{ width:100%; max-width:1120px; margin:auto; display:grid; grid-template-columns:minmax(0,1fr); gap:clamp(16px,3.2vh,30px); align-items:center; }
+  @media(min-width:960px), (min-width:640px) and (orientation:landscape){
+    #publicScreen .pub-hero-inner{ grid-template-columns:minmax(0,1fr) minmax(340px,440px); gap:clamp(36px,7vw,112px); }
+  }
+
+  #publicScreen .pub-eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--pub-blue-deep); margin-bottom:clamp(10px,2vh,20px); padding:6px 14px 6px 11px; border-radius:999px; background:rgba(29,95,214,0.08); border:1px solid rgba(29,95,214,0.14); }
+  #publicScreen .pub-eyebrow::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--pub-teal); box-shadow:0 0 0 3px rgba(15,154,139,0.18); flex-shrink:0; }
+  #publicScreen .pub-headline{ font-family:'Instrument Serif','Playfair Display',Georgia,serif; font-weight:400; font-size:clamp(36px, min(7vw, 8.4vh), 72px); line-height:1.02; letter-spacing:-.02em; color:var(--pub-ink); }
+  #publicScreen .pub-headline .pub-accent-text{ font-style:italic; background:linear-gradient(100deg,var(--pub-blue-deep),var(--pub-blue) 55%,var(--pub-blue-light)); -webkit-background-clip:text; background-clip:text; color:transparent; padding-right:.06em; }
+  #publicScreen .pub-desc{ font-size:clamp(13.5px,1.7vh + 4px,15.5px); line-height:1.7; color:var(--pub-ink-soft); margin-top:clamp(10px,2vh,20px); max-width:540px; }
+  #publicScreen .pub-desc b{ color:var(--pub-ink); font-weight:700; }
+
+  #publicScreen .pub-trust-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:clamp(12px,2.4vh,24px); }
+  #publicScreen .pub-trust-chip{ display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--pub-ink-soft); background:rgba(255,255,255,0.7); border:1px solid var(--pub-line); padding:7px 13px 7px 11px; border-radius:999px; }
+  #publicScreen .pub-trust-chip i, #publicScreen .pub-trust-chip svg{ width:14px; height:14px; color:var(--pub-blue); flex-shrink:0; }
+
+  #publicScreen .pub-ekskul-block{ display:none; margin-top:clamp(18px,3.4vh,32px); padding-top:clamp(14px,2.6vh,24px); border-top:1px solid var(--pub-line); max-width:560px; }
+  #publicScreen .pub-ekskul-label{ font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--pub-ink-faint); margin-bottom:12px; }
+  #publicScreen .pub-ekskul-list{ display:flex; flex-wrap:wrap; gap:8px; max-height:84px; overflow:hidden; }
+  #publicScreen .pub-ekskul-pill{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--pub-ink); background:rgba(255,255,255,0.8); border:1px solid var(--pub-line); padding:6px 13px 6px 10px; border-radius:999px; }
+  #publicScreen .pub-ekskul-pill::before{ content:''; width:8px; height:8px; border-radius:50%; background:var(--dot,var(--pub-blue)); flex-shrink:0; }
+  @media(min-width:960px) and (min-height:700px){ #publicScreen .pub-ekskul-block:not(.hidden){ display:block; } }
+
+  /* Layar pendek (HP kecil / landscape): padatkan agar tetap satu layar */
+  @media(max-height:720px) and (max-width:959px){ #publicScreen .pub-desc{ display:none; } }
+  @media(max-height:700px) and (max-width:959px){ #publicScreen .pub-trust-row{ display:none; } }
+  @media(max-height:620px){ #publicScreen .pub-trust-row{ display:none; } #publicScreen .pub-brand-sub{ display:none; } }
+  @media(max-height:560px){ #publicScreen .pub-footer{ display:none; } }
+
+  #publicScreen .pub-panel{ border-radius:26px; padding:clamp(20px,3.4vh,32px) clamp(18px,3vw,30px); position:relative; overflow:hidden; width:100%; }
+  #publicScreen .pub-panel::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--pub-blue-deep),var(--pub-blue-light),var(--pub-teal)); }
+  #publicScreen .pub-panel-title{ font-weight:800; font-size:16px; padding-bottom:clamp(10px,1.8vh,16px); margin-bottom:clamp(12px,2.4vh,22px); border-bottom:1px solid var(--pub-line); display:flex; align-items:center; gap:9px; letter-spacing:-.01em; }
+  #publicScreen .pub-panel-title i, #publicScreen .pub-panel-title svg{ width:18px; height:18px; color:var(--pub-blue); flex-shrink:0; }
+  #publicScreen .pub-field{ margin-bottom:clamp(12px,2.2vh,18px); }
+  #publicScreen .pub-field-label{ display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--pub-ink-soft); margin-bottom:8px; }
+  #publicScreen .pub-field-num{ width:17px; height:17px; border-radius:50%; background:var(--pub-blue); color:#fff; font-size:10px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; letter-spacing:0; }
+  #publicScreen .pub-select{
+    width:100%; font-family:inherit; font-size:14px; font-weight:500; color:var(--pub-ink);
+    background-color:rgba(255,255,255,0.9); border:1px solid rgba(10,26,51,0.12); border-radius:14px; padding:clamp(11px,1.7vh,14px) 40px clamp(11px,1.7vh,14px) 15px;
+    -webkit-appearance:none; appearance:none; text-overflow:ellipsis;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%230A1A33' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 15px center;
+    transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  }
+  #publicScreen .pub-select:hover{ border-color:rgba(29,95,214,0.38); }
+  #publicScreen .pub-select:focus{ outline:none; border-color:var(--pub-blue); box-shadow:0 0 0 4px rgba(29,95,214,0.13); background-color:#fff; }
+
+  #publicScreen .pub-btn-primary{
+    width:100%; font-size:14.5px; font-weight:700; letter-spacing:.01em; color:#fff; border:none;
+    background:linear-gradient(135deg,var(--pub-blue-deep),var(--pub-blue) 60%,var(--pub-blue-light));
+    padding:clamp(13px,2vh,16px) 20px; border-radius:15px; display:flex; align-items:center; justify-content:center; gap:10px;
+    box-shadow:0 16px 30px -14px rgba(29,95,214,0.7), inset 0 1px 0 rgba(255,255,255,0.22);
+    transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  #publicScreen .pub-btn-primary svg{ transition:transform .25s ease; }
+  #publicScreen .pub-btn-primary:hover{ filter:brightness(1.07); transform:translateY(-1px); box-shadow:0 20px 36px -16px rgba(29,95,214,0.75), inset 0 1px 0 rgba(255,255,255,0.22); }
+  #publicScreen .pub-btn-primary:hover svg{ transform:translateX(4px); }
+  #publicScreen .pub-btn-primary:active{ transform:scale(.98); }
+  #publicScreen .pub-error{ font-size:12px; font-weight:600; color:#C0392B; margin-top:12px; text-align:center; }
+
+  /* ---------- Panel hasil ---------- */
+  #publicScreen .pub-result-inner{ width:100%; max-width:980px; margin:0 auto; }
+  #publicScreen .pub-result-head{ display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin-bottom:clamp(12px,2.2vh,20px); }
+  #publicScreen .pub-back{ display:inline-flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--pub-blue-deep); padding:8px 16px 8px 12px; border-radius:999px; background:rgba(255,255,255,0.85); border:1px solid var(--pub-line); box-shadow:0 6px 16px -12px rgba(10,26,51,0.4); transition:transform .15s ease, background-color .15s ease, color .15s ease; }
+  #publicScreen .pub-back svg{ transition:transform .2s ease; }
+  #publicScreen .pub-back:hover{ background:var(--pub-blue-deep); color:#fff; }
+  #publicScreen .pub-back:hover svg{ transform:translateX(-3px); }
+  #publicScreen .pub-result-title{ font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(28px,4.6vh,40px); line-height:1.05; letter-spacing:-.015em; }
+
+  #publicScreen .pub-receipt{ border-radius:26px; padding:clamp(18px,3vh,28px) clamp(16px,3vw,30px); }
+  #publicScreen .pub-receipt-head{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding-bottom:clamp(14px,2.4vh,20px); border-bottom:1px solid var(--pub-line); }
+  #publicScreen .pub-avatar{ width:48px; height:48px; border-radius:16px; background:linear-gradient(135deg,var(--pub-blue-deep),var(--pub-blue-light)); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Instrument Serif',Georgia,serif; font-size:24px; flex-shrink:0; box-shadow:0 10px 20px -10px rgba(29,95,214,0.65); }
+  #publicScreen .pub-student-name{ font-weight:800; font-size:17px; line-height:1.2; letter-spacing:-.01em; }
+  #publicScreen .pub-tag-row{ display:flex; align-items:center; gap:7px; margin-top:8px; flex-wrap:wrap; }
+  #publicScreen .pub-tag{ font-size:11.5px; font-weight:600; color:var(--pub-ink-soft); }
+  #publicScreen .pub-tag-pill{ font-size:11px; font-weight:700; padding:4px 11px; border-radius:999px; background:rgba(29,95,214,0.09); color:var(--pub-blue-deep); }
+
+  #publicScreen .pub-stamp{ display:inline-flex; align-items:center; gap:7px; padding:7px 15px; border-radius:999px; background:rgba(15,154,139,0.10); border:1px solid rgba(15,154,139,0.22); color:#0B7468; font-size:11px; font-weight:800; letter-spacing:.05em; white-space:nowrap; }
+  #publicScreen .pub-stamp-dot{ width:7px; height:7px; border-radius:50%; background:var(--pub-teal); flex-shrink:0; }
+  #publicScreen .pub-stamp.pub-stamp-muted{ background:rgba(10,26,51,0.05); border-color:rgba(10,26,51,0.12); color:rgba(10,26,51,0.55); }
+  #publicScreen .pub-stamp.pub-stamp-muted .pub-stamp-dot{ background:rgba(10,26,51,0.35); }
+
+  #publicScreen .pub-summary{ display:grid; grid-template-columns:repeat(2,1fr); gap:16px 20px; padding:clamp(14px,2.4vh,22px) 0; border-bottom:1px solid var(--pub-line); }
+  @media(min-width:640px){ #publicScreen .pub-summary{ grid-template-columns:repeat(4,1fr); } }
+  #publicScreen .pub-summary-label{ font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--pub-ink-faint); margin-bottom:6px; }
+  #publicScreen .pub-summary-value{ font-size:17px; font-weight:800; color:var(--pub-ink); font-variant-numeric:tabular-nums; }
+  #publicScreen .pub-summary-value.pub-accent{ color:var(--pub-blue); }
+
+  #publicScreen .pub-history-title{ font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--pub-ink-faint); margin:clamp(14px,2.2vh,20px) 0 4px; }
+  #publicScreen .pub-txn{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 10px; border-radius:14px; transition:background-color .15s ease; }
+  #publicScreen .pub-txn:hover{ background:rgba(29,95,214,0.05); }
+  #publicScreen .pub-txn-check{ width:30px; height:30px; border-radius:50%; background:rgba(15,154,139,0.12); color:var(--pub-teal); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+  #publicScreen .pub-txn-date{ font-size:13.5px; font-weight:700; }
+  #publicScreen .pub-txn-sub{ font-size:11px; color:var(--pub-ink-faint); margin-top:1px; }
+  #publicScreen .pub-txn-amount{ font-size:14px; font-weight:800; white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+  #publicScreen .pub-txn-amount span{ display:block; font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--pub-teal); text-align:right; margin-top:1px; }
+  #publicScreen .pub-empty{ text-align:center; padding:28px 0; font-size:13.5px; color:var(--pub-ink-faint); }
+
+  #publicScreen .pub-month-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:12px 0 2px; }
+  @media(min-width:600px){ #publicScreen .pub-month-grid{ grid-template-columns:repeat(3,1fr); } }
+  @media(min-width:900px){ #publicScreen .pub-month-grid{ grid-template-columns:repeat(4,1fr); } }
+  #publicScreen .pub-month-cell{ border-radius:16px; padding:12px 14px; background:rgba(255,255,255,0.78); border:1px solid var(--pub-line); transition:transform .18s ease, box-shadow .18s ease; }
+  #publicScreen .pub-month-cell:hover{ transform:translateY(-2px); box-shadow:0 14px 26px -18px rgba(10,26,51,0.4); }
+  #publicScreen .pub-month-name{ font-size:12.5px; font-weight:700; color:var(--pub-ink); margin-bottom:8px; }
+  #publicScreen .pub-month-stamp{ display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:800; letter-spacing:.03em; padding:4px 10px; border-radius:999px; }
+  #publicScreen .pub-month-stamp::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.85; }
+  #publicScreen .pub-month-stamp.paid{ background:rgba(15,154,139,0.12); color:#0B7468; }
+  #publicScreen .pub-month-stamp.unpaid{ background:rgba(217,119,6,0.12); color:#B45309; }
+  #publicScreen .pub-month-stamp.holiday{ background:rgba(10,26,51,0.06); color:rgba(10,26,51,0.52); }
+  #publicScreen .pub-month-note{ font-size:10.5px; color:var(--pub-ink-faint); margin-top:6px; line-height:1.4; }
+
+  /* ---------- Footer ---------- */
+  #publicScreen .pub-footer{ flex:none; text-align:center; font-size:11px; color:var(--pub-ink-faint); padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); letter-spacing:.02em; border-top:1px solid var(--pub-line); background:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  @media(max-width:420px){ #publicScreen .pub-footer{ font-size:10px; padding-left:10px; padding-right:10px; } }
+
+  /* ---------- Animasi masuk ---------- */
+  @keyframes pubRise{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:translateY(0); } }
+  #publicScreen .pub-anim{ animation:pubRise .7s cubic-bezier(.16,1,.3,1) backwards; }
+  #publicScreen .pub-hero-inner > .pub-anim:nth-child(2){ animation-delay:.08s; }
+  @media (prefers-reduced-motion:reduce){
+    #publicScreen .pub-track, #publicScreen .pub-pane{ transition-duration:.01s; }
+    #publicScreen .pub-anim{ animation:none; }
+  }
+
+  /* ===========================================================
+     MOBILE APP SHELL (HP, < 640px) — header navy + lembar putih
+     melengkung + bottom navigation "notch" (sama dengan dashboard).
+     Desktop/tablet tidak berubah.
+     =========================================================== */
+  #pubBottomNav{ display:none; }
+  @media (max-width:639px){
+    html,body{ background:#0F2A56; }
+    #publicScreen{ background:#0F2A56; }
+    #publicScreen::before{ display:none; }
+    #publicScreen .pub-header{ background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; border-bottom:0; padding-top:env(safe-area-inset-top,0px); }
+    #publicScreen .pub-header-inner{ padding:14px 22px 6px; }
+    #publicScreen .pub-brand-name{ color:#fff; }
+    #publicScreen .pub-brand-sub{ color:rgba(255,255,255,.66); }
+    #publicScreen .pub-crest{ background:rgba(255,255,255,.14); box-shadow:inset 0 0 0 1px rgba(255,255,255,.28); }
+    #publicScreen .pub-header .pub-btn-icon{ display:none; }
+    #publicScreen .pub-footer{ display:none; }
+
+    /* --- Panel pencarian --- */
+    #publicSearchPane{ padding:0; display:block; }
+    #publicScreen .pub-hero-inner{ margin:0; gap:0; min-height:100%; grid-template-rows:auto 1fr; align-items:stretch; max-width:none; }
+    #publicScreen .pub-hero-inner > div:first-child{
+      padding:12px 22px 62px;
+      background:
+        radial-gradient(360px 220px at 108% -10%, rgba(111,163,242,.45), transparent 62%),
+        radial-gradient(280px 200px at -12% 105%, rgba(29,95,214,.55), transparent 62%);
+    }
+    #publicScreen .pub-eyebrow{ color:#fff; background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); }
+    #publicScreen .pub-headline{ color:#fff; }
+    #publicScreen .pub-headline .pub-accent-text{ background:linear-gradient(100deg,#B9D4FF,#fff); -webkit-background-clip:text; background-clip:text; }
+    #publicScreen .pub-desc{ color:rgba(255,255,255,.74); }
+    #publicScreen .pub-desc b{ color:#fff; }
+    #publicScreen .pub-trust-chip{ color:rgba(255,255,255,.88); background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+    #publicScreen .pub-trust-chip i, #publicScreen .pub-trust-chip svg{ color:#9CC2FF; }
+    #publicScreen .pub-panel{
+      margin-top:-34px; z-index:2; border-radius:30px 30px 0 0; background:#fff; border:0;
+      padding:26px 20px calc(130px + env(safe-area-inset-bottom,0px));
+      box-shadow:0 -16px 34px -18px rgba(11,30,61,.45);
+    }
+    #publicScreen .pub-panel::before{ display:none; }
+    #publicScreen .pub-select{ min-height:50px; font-size:16px; border-radius:16px; background-color:#F4F8FF; }
+    #publicScreen .pub-btn-primary{ min-height:52px; border-radius:18px; background:linear-gradient(135deg,#0F2A56,#1D5FD6); box-shadow:0 16px 28px -14px rgba(29,95,214,.7); }
+
+    /* --- Panel hasil --- */
+    #publicResultSection{
+      padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(130px + env(safe-area-inset-bottom,0px));
+      background:linear-gradient(180deg,#0F2A56 0,#1A4E96 96px,#F4F8FF 110px);
+    }
+    #publicScreen .pub-result-head{ flex-direction:column; align-items:flex-start; gap:14px; margin-bottom:22px; }
+    #publicScreen .pub-result-title{ color:#fff; font-size:28px; font-weight:400; letter-spacing:-.015em; }
+
+    /* --- Bottom navigation (3 item) --- */
+    #publicScreen #pubBottomNav{
+      display:block; position:fixed; left:12px; right:12px; z-index:30;
+      bottom:calc(10px + env(safe-area-inset-bottom,0px));
+    }
+    #pubBottomNav .bn-bar{
+      position:relative; display:flex; height:66px; padding:0 8px; background:#fff; border-radius:24px;
+      box-shadow:0 18px 40px -14px rgba(11,30,61,.5), 0 4px 14px -6px rgba(11,30,61,.18);
+      border:1px solid rgba(15,30,61,.05);
+    }
+    #pubBottomNav .bn-bubble{
+      position:absolute; top:-24px; width:58px; height:58px; margin-left:-29px; border-radius:50%;
+      background:#fff; box-shadow:0 0 0 6px #123B78, 0 14px 22px -8px rgba(11,30,61,.5);
+      transition:left .38s cubic-bezier(.34,1.4,.5,1); pointer-events:none;
+    }
+    #pubBottomNav .bn-item{
+      position:relative; z-index:2; flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+      padding-bottom:9px; gap:4px; color:#64748B; -webkit-tap-highlight-color:transparent;
+    }
+    #pubBottomNav .bn-item.dim{ opacity:.45; }
+    #pubBottomNav .bn-ic{ width:24px; height:24px; display:flex; align-items:center; justify-content:center; transition:transform .38s cubic-bezier(.34,1.4,.5,1), color .2s ease; }
+    #pubBottomNav .bn-ic svg, #pubBottomNav .bn-ic i{ width:22px; height:22px; stroke-width:1.9; }
+    #pubBottomNav .bn-lb{ font-size:10.5px; font-weight:600; white-space:nowrap; }
+    #pubBottomNav .bn-item.active{ color:#0F1E3D; opacity:1; }
+    #pubBottomNav .bn-item.active .bn-ic{ transform:translateY(-27px) scale(1.05); color:#1A4E96; }
+    #pubBottomNav .bn-item.active .bn-lb{ font-weight:800; }
+    #pubBottomNav .bn-item:active .bn-ic{ transform:scale(.88); }
+    #pubBottomNav .bn-item.active:active .bn-ic{ transform:translateY(-27px) scale(.92); }
+    #toast{ bottom:calc(104px + env(safe-area-inset-bottom,0px)) !important; left:16px; right:16px !important; }
+
+    /* --- Tata letak HP (dirapikan): blok biru di atas MENYERAP sisa tinggi
+       layar dan isinya diletakkan di tengah, sedangkan lembar putih
+       (form pencarian) menempel di bawah dan hanya setinggi isinya +
+       ruang untuk bottom navigation. Dengan begitu tidak ada area
+       putih kosong di bawah tombol, dan layar pendek tetap bisa
+       di-scroll. --- */
+    #publicSearchPane{ display:block; }
+    #publicScreen .pub-hero-inner{ display:flex; flex-direction:column; min-height:100%; width:100%; }
+    #publicScreen .pub-hero-inner > div:first-child{
+      flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;
+      padding:12px 22px 46px;
+    }
+    #publicScreen .pub-eyebrow{ align-self:flex-start; margin-bottom:10px; }
+    #publicScreen .pub-headline{ font-size:clamp(28px,8.4vw,34px); line-height:1.08; letter-spacing:-.02em; }
+    #publicScreen .pub-desc{
+      font-size:14px; line-height:1.6; margin-top:12px; max-width:none;
+      color:rgba(255,255,255,.8); text-wrap:pretty;
+    }
+    /* Tiga keunggulan dibuat kartu sama lebar (rapi, tidak ada chip yang
+       tertinggal sendirian di baris kedua). */
+    #publicScreen .pub-trust-row{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:14px; }
+    #publicScreen .pub-trust-chip{
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center;
+      gap:5px; padding:8px 6px 9px; border-radius:16px; font-size:10.5px; line-height:1.3; font-weight:600;
+    }
+    #publicScreen .pub-trust-chip i, #publicScreen .pub-trust-chip svg{ width:18px; height:18px; }
+    #publicScreen .pub-panel{
+      flex:0 0 auto; overflow:visible; margin-top:-28px;
+      padding:20px 18px calc(112px + env(safe-area-inset-bottom,0px));
+    }
+    /* Layar HP pendek: deskripsi disembunyikan supaya tombol utama langsung
+       terlihat di atas bubble navigasi bawah. */
+    @media (max-height:860px){ #publicScreen .pub-desc{ display:none; } }
+    /* Aturan grid di atas menimpa aturan sembunyi global, jadi ditegaskan ulang di sini. */
+    @media (max-height:700px){ #publicScreen .pub-trust-row{ display:none; } }
+  }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div id="publicScreen">
+
+  <!-- Kop / letterhead -->
+  <header class="pub-header pub-glass">
+    <div class="pub-header-inner">
+      <div class="pub-brand">
+        <div class="pub-crest" id="publicCrest" aria-hidden="true"><img src="assets/logo-icon.png" alt="" class="w-full h-full object-contain rounded-[10px]"></div>
+        <div style="min-width:0;">
+          <p class="pub-brand-name" id="publicBrandName">SIKASAPA</p>
+          <p class="pub-brand-sub" id="publicSchoolLine">SD Negeri 01 Papahan</p>
+        </div>
+      </div>
+      <button onclick="window.location.href='login.html'" class="pub-btn-icon" title="Masuk" aria-label="Masuk sebagai Bendahara/Kepala Sekolah">
+        <i data-lucide="user-round" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Panggung: panel pencarian (kiri) & panel hasil (kanan) — bergeser ke samping -->
+  <main class="pub-stage">
+    <div class="pub-track">
+
+      <!-- Panel 1: pencarian (tampilan awal, selalu satu layar penuh) -->
+      <section id="publicSearchPane" class="pub-pane" aria-hidden="false">
+        <div class="pub-hero-inner">
+          <div class="pub-anim">
+            <p class="pub-eyebrow" id="publicEyebrow">Layanan Wali Murid</p>
+            <h1 class="pub-headline"><span id="publicHeadline1">Pembayaran</span><br><span class="pub-accent-text" id="publicHeadline2">Ekstrakurikuler</span></h1>
+            <p class="pub-desc" id="publicHeroDesc">
+              Selamat datang di SIKASAPA, Sistem Informasi Keuangan Ekstrakurikuler SD Negeri 01 Papahan. Cukup pilih ekstrakurikuler dan nama putra/putri Anda untuk melihat status pembayaran kapan saja, tanpa perlu login atau memasang aplikasi.
+            </p>
+            <div class="pub-trust-row">
+              <span class="pub-trust-chip"><i data-lucide="shield-check"></i><span id="publicChip1">Data Aman &amp; Resmi Sekolah</span></span>
+              <span class="pub-trust-chip"><i data-lucide="zap"></i><span id="publicChip2">Hasil Real-time</span></span>
+              <span class="pub-trust-chip"><i data-lucide="smartphone"></i><span id="publicChip3">Tanpa Perlu Aplikasi</span></span>
+            </div>
+            <div class="pub-ekskul-block hidden">
+              <p class="pub-ekskul-label">Ekstrakurikuler yang tersedia</p>
+              <div class="pub-ekskul-list" id="publicDaftarEkskul"></div>
+            </div>
+          </div>
+
+          <div class="pub-panel pub-glass-strong pub-anim">
+            <p class="pub-panel-title"><i data-lucide="search"></i>Cari Data Siswa</p>
+
+            <div class="pub-field">
+              <label class="pub-field-label" for="publicEkskulSelect"><span class="pub-field-num">1</span>Ekstrakurikuler</label>
+              <select id="publicEkskulSelect" onchange="onPublicEkskulChange()" class="pub-select"></select>
+            </div>
+
+            <div class="pub-field" style="margin-bottom:clamp(14px,2.6vh,24px)">
+              <label class="pub-field-label" for="publicSiswaSelect"><span class="pub-field-num">2</span>Nama Siswa</label>
+              <select id="publicSiswaSelect" class="pub-select"></select>
+            </div>
+
+            <button id="publicSearchBtn" onclick="cariInfoPembayaranPublik()" class="pub-btn-primary">
+              <span>Lihat Informasi Pembayaran</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+            <p id="publicSearchError" class="pub-error hidden"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 2: hasil (masuk dari kanan) -->
+      <section id="publicResultSection" class="pub-pane" aria-hidden="true" inert>
+        <div class="pub-result-inner">
+          <div class="pub-result-head">
+            <button onclick="resetPencarianPublik()" class="pub-back" aria-label="Kembali ke pencarian">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+              Cari Siswa Lain
+            </button>
+            <h2 class="pub-result-title">Informasi Pembayaran</h2>
+          </div>
+          <div id="publicResultCard"></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="pub-footer">
+    <span id="publicFooterBrand">SIKASAPA — Sistem Informasi Keuangan Ekstrakurikuler</span> &nbsp;·&nbsp; <span id="publicFooterYear"></span>
+  </footer>
+
+  <!-- Bottom navigation (hanya tampil di HP) -->
+  <nav id="pubBottomNav" aria-label="Navigasi halaman">
+    <div class="bn-bar">
+      <span class="bn-bubble" id="pubBubble" style="left:calc(8px + (100% - 16px) * 0.1667)"></span>
+      <button type="button" class="bn-item active" data-k="cari"><span class="bn-ic"><i data-lucide="search"></i></span><span class="bn-lb">Cek Bayar</span></button>
+      <button type="button" class="bn-item dim" data-k="hasil"><span class="bn-ic"><i data-lucide="receipt"></i></span><span class="bn-lb">Hasil</span></button>
+      <button type="button" class="bn-item" data-k="masuk"><span class="bn-ic"><i data-lucide="log-in"></i></span><span class="bn-lb">Masuk</span></button>
+    </div>
+  </nav>
+</div>
+
+<div id="toast" class="fixed bottom-5 right-5 z-50 hidden"></div>
+
+<script src="assets/logo-default.js"></script>
+<script src="script_core.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', initPublicPage);
+
+/* Bottom navigation HP: Cek Bayar / Hasil / Masuk */
+window.addEventListener('DOMContentLoaded', function(){
+  var nav = document.getElementById('pubBottomNav');
+  var scr = document.getElementById('publicScreen');
+  var card = document.getElementById('publicResultCard');
+  if(!nav || !scr || !card) return;
+  var items = nav.querySelectorAll('.bn-item');
+  var bubble = document.getElementById('pubBubble');
+  function adaHasil(){ return card.innerHTML.trim() !== ''; }
+  function sync(){
+    var showRes = scr.classList.contains('show-result');
+    var idx = showRes ? 1 : 0;
+    items.forEach(function(el,i){
+      el.classList.toggle('active', i===idx);
+      if(i===idx) el.setAttribute('aria-current','page'); else el.removeAttribute('aria-current');
+    });
+    items[1].classList.toggle('dim', !adaHasil() && !showRes);
+    bubble.style.left = 'calc(8px + (100% - 16px) * '+((idx+0.5)/3)+')';
+  }
+  nav.addEventListener('click', function(e){
+    var b = e.target.closest('.bn-item'); if(!b) return;
+    var k = b.getAttribute('data-k');
+    if(k==='masuk'){ window.location.href='login.html'; return; }
+    if(k==='cari'){
+      if(scr.classList.contains('show-result')) resetPencarianPublik();
+      else { var sel=document.getElementById('publicEkskulSelect'); if(sel) sel.focus(); }
+      return;
+    }
+    if(k==='hasil'){
+      if(adaHasil()) setPublicView(true);
+      else showToast('Cari data siswa terlebih dahulu di tab Cek Bayar.','info');
+    }
+  });
+  new MutationObserver(sync).observe(scr,{attributes:true,attributeFilter:['class']});
+  new MutationObserver(sync).observe(card,{childList:true});
+  setTimeout(function(){ try{ lucide.createIcons(); }catch(e){} }, 0);
+  sync();
+});
+</script>
+</body>
+</html>

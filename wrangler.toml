@@ -13,7 +13,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "sikasapa"
-database_id = "579dc036-75cc-43ec-a059-f5357e02a3e9"
+database_id = "2af11bfb-8db9-4d3e-b235-b50aee2f67a2"
 
 # ---------------------------------------------------------------
 # Static assets — folder public/ (index.html, login.html, admin.html,

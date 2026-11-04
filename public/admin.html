@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#0F2A56">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>SIKasapa — Sistem Informasi Keuangan Ekstrakurikuler SDN 01 Papahan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-950:#0B1E3D;
+    --navy-900:#0F2A56;
+    --navy-800:#123B78;
+    --navy-700:#1A4E96;
+    --blue-600:#2563EB;
+    --blue-500:#1769D1;
+    --blue-400:#5B9BF0;
+    --blue-100:#DCEBFF;
+    --emerald-500:#0D9488;
+    --emerald-400:#059669;
+    --rose-500:#E11D48;
+    --amber-400:#2563EB;
+    --amber-300:#3B82F6;
+  }
+  *{font-family:'Plus Jakarta Sans',sans-serif;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(37,99,235,0.14), transparent 60%),
+      radial-gradient(1000px 500px at 110% 10%, rgba(91,155,240,0.12), transparent 55%),
+      linear-gradient(180deg, #EEF4FF 0%, #F7FAFF 45%, #FFFFFF 100%);
+    min-height:100vh;
+  }
+  .glass{
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px -12px rgba(30,64,175,0.10);
+  }
+  .glass-strong{
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(255,255,255,0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 8px 32px -12px rgba(30,64,175,0.12);
+  }
+  .hidden{ display:none; }
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(37,99,235,0.18);border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(37,99,235,0.32);}
+
+  .nav-item{position:relative;transition:all .25s cubic-bezier(.4,0,.2,1);}
+  .nav-item .nav-icon{transition:transform .25s cubic-bezier(.4,0,.2,1);}
+  .nav-item:hover .nav-icon{transform:translateX(2px);}
+  .nav-item.active{
+    background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(91,155,240,0.16));
+    border: 1px solid rgba(37,99,235,0.28);
+  }
+  .nav-item.active .nav-dot{opacity:1;transform:scale(1);}
+  .nav-dot{opacity:0;transform:scale(0);transition:all .25s ease;}
+
+  .view-enter{animation: viewFade .38s cubic-bezier(.16,1,.3,1);}
+  @keyframes viewFade{
+    from{opacity:0; transform: translateY(10px) scale(.99);}
+    to{opacity:1; transform: translateY(0) scale(1);}
+  }
+  .stagger > *{animation: riseIn .5s cubic-bezier(.16,1,.3,1) backwards;}
+  .stagger > *:nth-child(1){animation-delay:.02s}
+  .stagger > *:nth-child(2){animation-delay:.07s}
+  .stagger > *:nth-child(3){animation-delay:.12s}
+  .stagger > *:nth-child(4){animation-delay:.17s}
+  .stagger > *:nth-child(5){animation-delay:.22s}
+  @keyframes riseIn{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+
+  .sidebar-slide{transition: transform .35s cubic-bezier(.4,0,.2,1);}
+  .card-hover{transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;}
+  .card-hover:hover{transform: translateY(-3px); border-color: rgba(37,99,235,0.35); box-shadow: 0 20px 40px -20px rgba(30,64,175,0.28);}
+
+  .btn-primary{
+    background: linear-gradient(135deg, var(--blue-600), var(--blue-400));
+    color:#FFFFFF; font-weight:700;
+    transition:all .2s ease;
+  }
+  .btn-primary:hover{filter:brightness(1.08); transform:translateY(-1px); box-shadow:0 10px 25px -10px rgba(37,99,235,0.55);}
+  .btn-primary:active{transform:translateY(0) scale(.97);}
+
+  .btn-secondary{
+    background: rgba(15,30,61,0.045);
+    border:1.5px solid rgba(15,30,61,0.10);
+    color:#334155; font-weight:600;
+    transition: all .18s ease;
+  }
+  .btn-secondary:hover{ background: rgba(15,30,61,0.08); border-color: rgba(15,30,61,0.18); }
+  .btn-secondary:active{ transform: scale(.97); }
+
+  .input-glass{
+    background: rgba(255,255,255,0.85);
+    border:1.5px solid rgba(15,30,61,0.10);
+    color:#0F1E3D;
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  }
+  .input-glass:hover{ border-color: rgba(37,99,235,0.28); }
+  .input-glass:focus{outline:none; border-color:var(--blue-600); box-shadow:0 0 0 3px rgba(37,99,235,0.14); background:#FFFFFF;}
+  .input-glass::placeholder{color:rgba(15,30,61,0.32);}
+  .input-glass:disabled{opacity:.55; cursor:not-allowed;}
+
+  .modal-panel{
+    background:#FFFFFF;
+    border: 1px solid rgba(15,30,61,0.08) !important;
+    box-shadow: 0 28px 60px -22px rgba(11,30,61,0.30), 0 10px 24px -12px rgba(11,30,61,0.16);
+  }
+  .modal-header{
+    background:#FFFFFF;
+  }
+  .modal-close-btn{ transition: all .18s ease; }
+  .modal-close-btn:hover{ background: rgba(37,99,235,0.10); color:var(--blue-600); }
+
+  .badge{font-size:11px; font-weight:700; letter-spacing:.02em;}
+  .table-row:hover{background:rgba(37,99,235,0.045);}
+  .tx-row{transition:background-color .18s ease;}
+  .tx-row:hover{background:rgba(37,99,235,0.045);}
+
+  #sidebarOverlay{transition:opacity .3s ease;}
+
+  [data-modal]{transition:opacity .25s ease;}
+  .modal-panel{transition:transform .3s cubic-bezier(.16,1,.3,1), opacity .3s ease;}
+
+  /* Slide-over drawer (form tambah/ubah data — CRUD modern) */
+  #drawerBackdrop{ transition: opacity .3s ease; }
+  #drawerPanel{ transition: transform .32s cubic-bezier(.16,1,.3,1); box-shadow: -30px 0 60px -20px rgba(11,30,61,.28), -8px 0 20px -8px rgba(11,30,61,.14); }
+  .drawer-section-title{ font-size:11px; font-weight:800; letter-spacing:.04em; color:#64748B; margin-bottom:10px; }
+
+  /* Validasi form inline */
+  .field-invalid{ border-color:var(--rose-500) !important; box-shadow:0 0 0 3px rgba(225,29,72,.14) !important; }
+  .field-error-msg{ color:var(--rose-500); font-weight:600; }
+  @keyframes shakeX{ 10%,90%{transform:translateX(-1px);} 20%,80%{transform:translateX(2px);} 30%,50%,70%{transform:translateX(-4px);} 40%,60%{transform:translateX(4px);} }
+  .shake{ animation: shakeX .35s ease; }
+
+  /* Stat strip mini di atas halaman CRUD */
+  .stat-chip{ background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.75); border-radius:18px; padding:14px 16px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
+
+  /* Tombol simpan saat proses (loading) */
+  .btn-loading{ pointer-events:none; opacity:.75; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .spin{ animation: spin .6s linear infinite; }
+
+  /* ===========================================================
+     HALAMAN PUBLIK — glassmorphism, Plus Jakarta Sans.
+     Diberi ruang lingkup di #publicScreen supaya tidak mengubah
+     gaya dashboard bendahara/kepsek.
+     =========================================================== */
+  #publicScreen{
+    --pub-ink:#0F1E2E;
+    --pub-ink-soft:rgba(15,30,46,0.62);
+    --pub-ink-faint:rgba(15,30,46,0.42);
+    --pub-teal:#0E6B58;
+    --pub-teal-deep:#0A4F41;
+    --pub-teal-light:#159274;
+    --pub-gold:#B8863A;
+    --pub-line:rgba(15,30,46,0.10);
+    --pub-glass:rgba(255,255,255,0.58);
+    --pub-glass-strong:rgba(255,255,255,0.74);
+    --pub-glass-border:rgba(255,255,255,0.80);
+    font-family:'Plus Jakarta Sans',sans-serif;
+    color:var(--pub-ink);
+    min-height:100vh;
+    background:
+      radial-gradient(1000px 520px at 6% -12%, rgba(14,107,88,0.16), transparent 60%),
+      radial-gradient(760px 440px at 106% 6%, rgba(184,134,58,0.14), transparent 55%),
+      radial-gradient(900px 500px at 50% 115%, rgba(14,107,88,0.10), transparent 60%),
+      linear-gradient(180deg, #EFF5F3 0%, #F6FAF8 45%, #FFFFFF 100%);
+  }
+  #publicScreen .pub-glass{
+    background:var(--pub-glass);
+    border:1px solid var(--pub-glass-border);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    box-shadow:0 8px 32px -14px rgba(15,30,46,0.12);
+  }
+  #publicScreen .pub-glass-strong{
+    background:var(--pub-glass-strong);
+    border:1px solid rgba(255,255,255,0.9);
+    backdrop-filter:blur(26px); -webkit-backdrop-filter:blur(26px);
+    box-shadow:0 24px 60px -24px rgba(15,30,46,0.22), 0 8px 24px -14px rgba(15,30,46,0.10);
+  }
+
+  #publicScreen .pub-header{ position:sticky; top:0; z-index:20; border-bottom:1px solid rgba(15,30,46,0.06); position:relative; }
+  #publicScreen .pub-header::after{ content:''; position:absolute; left:0; right:0; bottom:-1px; height:1px; background:linear-gradient(90deg, transparent, rgba(14,107,88,0.25), rgba(184,134,58,0.2), transparent); }
+  #publicScreen .pub-header-inner{ max-width:1160px; margin:0 auto; padding:16px 28px; display:flex; align-items:center; justify-content:space-between; }
+  #publicScreen .pub-brand{ display:flex; align-items:center; gap:13px; }
+  #publicScreen .pub-crest{ width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,var(--pub-teal),var(--pub-teal-light)); display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; box-shadow:0 6px 16px -6px rgba(14,107,88,0.55), inset 0 0 0 1px rgba(255,255,255,0.14); }
+  #publicScreen .pub-brand-name{ font-weight:800; font-size:15.5px; letter-spacing:-.01em; line-height:1.15; }
+  #publicScreen .pub-brand-sub{ font-size:11px; color:var(--pub-ink-soft); letter-spacing:.03em; margin-top:2px; }
+
+  #publicScreen .pub-btn-outline{
+    font-size:13px; font-weight:700; letter-spacing:.01em; color:var(--pub-teal-deep);
+    background:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.9);
+    backdrop-filter:blur(10px); padding:9px 22px; border-radius:999px;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  #publicScreen .pub-btn-outline:hover{ transform:translateY(-1px); box-shadow:0 8px 20px -10px rgba(15,30,46,0.25); }
+
+  #publicScreen .pub-btn-icon{
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--pub-teal-deep);
+    background:rgba(255,255,255,0.55); border:1px solid rgba(255,255,255,0.9);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px -6px rgba(15,30,46,0.18);
+    transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease;
+  }
+  #publicScreen .pub-btn-icon:hover{
+    transform:translateY(-1px);
+    background:linear-gradient(135deg,var(--pub-teal),var(--pub-teal-light));
+    color:#FFFFFF;
+    box-shadow:0 10px 24px -10px rgba(14,107,88,0.55);
+  }
+  #publicScreen .pub-btn-icon:active{ transform:translateY(0) scale(.94); }
+
+  #publicScreen .pub-btn-primary{
+    width:100%; font-size:14.5px; font-weight:700; letter-spacing:.01em; color:#FFFFFF;
+    background:linear-gradient(135deg,var(--pub-teal-deep),var(--pub-teal),var(--pub-teal-light)); border:none;
+    padding:15px 20px; border-radius:16px; display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow:0 14px 30px -12px rgba(14,107,88,0.55);
+    transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  #publicScreen .pub-btn-primary:hover{ filter:brightness(1.06); transform:translateY(-1px); box-shadow:0 18px 36px -14px rgba(14,107,88,0.6); }
+  #publicScreen .pub-btn-primary:active{ transform:translateY(0) scale(.98); }
+
+  #publicScreen .pub-hero{ padding:64px 28px 40px; }
+  #publicScreen .pub-hero-inner{ max-width:1160px; margin:0 auto; display:grid; grid-template-columns:1fr; gap:40px; align-items:start; }
+  @media(min-width:1024px){ #publicScreen .pub-hero-inner{ grid-template-columns:1fr 424px; gap:64px; } }
+
+  #publicScreen .pub-eyebrow{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pub-teal-deep); margin-bottom:18px; padding:6px 14px 6px 10px; border-radius:999px; background:rgba(14,107,88,0.09); border:1px solid rgba(14,107,88,0.12); }
+  #publicScreen .pub-eyebrow::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--pub-gold); flex-shrink:0; }
+  #publicScreen .pub-headline{ font-weight:800; font-size:39px; line-height:1.12; letter-spacing:-.025em; color:var(--pub-ink); }
+  #publicScreen .pub-headline .pub-accent-text{ background:linear-gradient(100deg,var(--pub-teal-deep),var(--pub-teal-light)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  @media(min-width:1024px){ #publicScreen .pub-headline{ font-size:48px; } }
+  #publicScreen .pub-desc{ font-size:15px; line-height:1.75; color:var(--pub-ink-soft); margin-top:20px; max-width:460px; }
+  #publicScreen .pub-desc b{ color:var(--pub-ink); font-weight:700; }
+
+  #publicScreen .pub-trust-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+  #publicScreen .pub-trust-chip{ display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--pub-ink-soft); background:rgba(255,255,255,0.55); border:1px solid rgba(255,255,255,0.85); padding:8px 14px; border-radius:999px; backdrop-filter:blur(8px); box-shadow:0 4px 12px -8px rgba(15,30,46,0.15); }
+  #publicScreen .pub-trust-chip i{ width:14px; height:14px; color:var(--pub-teal); flex-shrink:0; }
+
+  #publicScreen .pub-panel{ border-radius:28px; padding:30px; position:relative; overflow:hidden; }
+  #publicScreen .pub-panel::before{ content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--pub-teal-deep),var(--pub-teal-light),var(--pub-gold)); }
+  #publicScreen .pub-panel-title{ font-weight:800; font-size:16.5px; padding-bottom:16px; margin-bottom:22px; border-bottom:1px solid rgba(15,30,46,0.08); display:flex; align-items:center; gap:9px; letter-spacing:-.01em; }
+  #publicScreen .pub-panel-title i{ width:18px; height:18px; color:var(--pub-teal); flex-shrink:0; }
+  #publicScreen .pub-field{ margin-bottom:18px; }
+  #publicScreen .pub-field-label{ display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--pub-ink-soft); margin-bottom:8px; }
+  #publicScreen .pub-field-num{ width:16px; height:16px; border-radius:50%; background:var(--pub-teal); color:#FFFFFF; font-size:10px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  #publicScreen .pub-select{
+    width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; font-weight:500; color:var(--pub-ink);
+    background:rgba(255,255,255,0.75); border:1.5px solid rgba(15,30,46,0.10); border-radius:14px; padding:12px 14px;
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%230F1E2E' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;
+    transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  }
+  #publicScreen .pub-select:hover{ border-color:rgba(14,107,88,0.3); }
+  #publicScreen .pub-select:focus{ outline:none; border-color:var(--pub-teal); box-shadow:0 0 0 3px rgba(14,107,88,0.14); background:#FFFFFF; }
+  #publicScreen .pub-error{ font-size:12px; font-weight:600; color:#C0392B; margin-top:12px; }
+
+  #publicScreen .pub-result{ padding:8px 24px 72px; }
+  #publicScreen .pub-result-inner{ max-width:1120px; margin:0 auto; }
+  #publicScreen .pub-result-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  #publicScreen .pub-result-title{ font-weight:800; font-size:19px; letter-spacing:-.01em; }
+  #publicScreen .pub-reset{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--pub-ink-soft); padding:7px 14px; border-radius:999px; background:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.8); transition:color .15s ease, background-color .15s ease; }
+  #publicScreen .pub-reset:hover{ color:var(--pub-teal-deep); background:rgba(255,255,255,0.85); }
+
+  #publicScreen .pub-receipt{ border-radius:28px; padding:30px; }
+  #publicScreen .pub-receipt-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; padding-bottom:22px; border-bottom:1px solid rgba(15,30,46,0.08); }
+  #publicScreen .pub-avatar{ width:46px; height:46px; border-radius:16px; background:linear-gradient(135deg,var(--pub-teal-deep),var(--pub-teal-light)); color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; flex-shrink:0; box-shadow:0 8px 18px -8px rgba(14,107,88,0.5); }
+  #publicScreen .pub-student-name{ font-weight:800; font-size:18px; line-height:1.2; letter-spacing:-.01em; }
+  #publicScreen .pub-tag-row{ display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  #publicScreen .pub-tag{ font-size:11.5px; font-weight:600; color:var(--pub-ink-soft); }
+  #publicScreen .pub-tag-pill{ font-size:11px; font-weight:700; padding:4px 11px; border-radius:999px; background:rgba(14,107,88,0.09); color:var(--pub-teal-deep); }
+
+  #publicScreen .pub-stamp{ display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:999px; background:rgba(14,107,88,0.10); border:1px solid rgba(14,107,88,0.18); color:var(--pub-teal-deep); font-size:11.5px; font-weight:800; letter-spacing:.03em; white-space:nowrap; }
+  #publicScreen .pub-stamp-dot{ width:7px; height:7px; border-radius:50%; background:var(--pub-teal); flex-shrink:0; }
+
+  #publicScreen .pub-summary{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; padding:22px 0; border-bottom:1px solid rgba(15,30,46,0.08); }
+  @media(min-width:640px){ #publicScreen .pub-summary{ grid-template-columns:repeat(4,1fr); } }
+  #publicScreen .pub-summary-label{ font-size:10.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--pub-ink-faint); margin-bottom:6px; }
+  #publicScreen .pub-summary-value{ font-size:16px; font-weight:800; color:var(--pub-ink); font-variant-numeric:tabular-nums; }
+  #publicScreen .pub-summary-value.pub-accent{ color:var(--pub-teal); }
+
+  #publicScreen .pub-history-title{ font-size:10.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--pub-ink-faint); margin:20px 0 6px; }
+  #publicScreen .pub-txn{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 10px; border-radius:16px; transition:background-color .15s ease; }
+  #publicScreen .pub-txn:hover{ background:rgba(14,107,88,0.05); }
+  #publicScreen .pub-txn-check{ width:30px; height:30px; border-radius:50%; background:rgba(14,107,88,0.10); color:var(--pub-teal); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+  #publicScreen .pub-txn-date{ font-size:13.5px; font-weight:700; }
+  #publicScreen .pub-txn-sub{ font-size:11px; color:var(--pub-ink-faint); margin-top:1px; }
+  #publicScreen .pub-txn-amount{ font-size:14px; font-weight:800; white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+  #publicScreen .pub-txn-amount span{ display:block; font-size:10px; font-weight:700; letter-spacing:.05em; color:var(--pub-teal); text-align:right; margin-top:1px; }
+
+  #publicScreen .pub-empty{ text-align:center; padding:32px 0; font-size:13.5px; color:var(--pub-ink-faint); }
+
+  #publicScreen .pub-footer{ text-align:center; font-size:11.5px; color:var(--pub-ink-faint); padding:32px 24px 42px; letter-spacing:.01em; border-top:1px solid rgba(15,30,46,0.06); margin-top:8px; }
+
+  @keyframes pubRise{ from{ opacity:0; transform:translateY(10px) scale(.99); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  #publicScreen .pub-anim{ animation:pubRise .5s cubic-bezier(.16,1,.3,1); }
+
+  /* ===========================================================
+     MOBILE APP SHELL (< 1024px) — header biru melengkung + bottom
+     navigation dengan indikator "notch" melayang (ref. desain fintech).
+     Desktop tidak berubah.
+     =========================================================== */
+  #mobileHero, #bottomNav, #moreSheetWrap{ display:none; }
+  body:not(.app-ready) #bottomNav, body:not(.app-ready) #moreSheetWrap{ display:none !important; }
+  @media (max-width:1023px){
+    body{ background:#0F2A56; }
+    #app{ background:linear-gradient(180deg,#0F2A56 0,#123B78 260px,#EEF4FF 260px); }
+    #topbar{ display:none !important; }
+
+    #mobileHero{
+      display:block; position:relative; overflow:hidden;
+      padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 54px; color:#fff;
+      background:
+        radial-gradient(420px 240px at 105% -10%, rgba(91,155,240,.45), transparent 60%),
+        radial-gradient(320px 220px at -10% 110%, rgba(37,99,235,.55), transparent 60%),
+        linear-gradient(160deg,#0F2A56 0%,#1A4E96 100%);
+    }
+    #mobileHero .mh-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    #mobileHero .mh-title{ font-size:20px; font-weight:800; letter-spacing:-.02em; line-height:1.15; }
+    #mobileHero .mh-sub{ font-size:11.5px; color:rgba(255,255,255,.68); margin-top:3px; max-width:230px; line-height:1.35; }
+    #mobileHero .mh-avatar{
+      width:42px; height:42px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      font-weight:800; font-size:16px; color:#0F2A56; background:#fff;
+      box-shadow:0 0 0 3px rgba(255,255,255,.25), 0 8px 18px -8px rgba(0,0,0,.5);
+    }
+    #mobileHero .mh-balance{ margin-top:22px; }
+    #mobileHero .mh-balance small{ display:block; font-size:12px; color:rgba(255,255,255,.7); font-weight:500; }
+    #mobileHero .mh-balance b{ display:block; font-size:30px; font-weight:800; letter-spacing:-.03em; margin-top:2px; font-variant-numeric:tabular-nums; }
+    #mobileHero .mh-actions{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:22px; }
+    #mobileHero .mh-action{ display:flex; flex-direction:column; align-items:center; gap:7px; font-size:11px; font-weight:600; color:rgba(255,255,255,.9); }
+    #mobileHero .mh-action span.ic{
+      width:52px; height:52px; border-radius:16px; background:#fff; color:#1A4E96;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 10px 20px -10px rgba(0,0,0,.45); transition:transform .15s ease;
+    }
+    #mobileHero .mh-action:active span.ic{ transform:scale(.92); }
+
+    #mainContent{
+      position:relative; z-index:2; margin-top:-30px; background:#F4F8FF;
+      border-radius:30px 30px 0 0; padding:22px 16px calc(120px + env(safe-area-inset-bottom,0px)) !important;
+      min-height:60vh; box-shadow:0 -14px 30px -18px rgba(11,30,61,.35);
+    }
+    #toast{ bottom:calc(104px + env(safe-area-inset-bottom,0px)) !important; left:16px; right:16px !important; }
+    #toast > div{ width:100%; }
+
+    /* ---- Bottom navigation ---- */
+    #bottomNav{
+      display:block; position:fixed; left:12px; right:12px; z-index:30;
+      bottom:calc(10px + env(safe-area-inset-bottom,0px));
+    }
+    #bottomNav .bn-bar{
+      position:relative; display:flex; height:66px; padding:0 8px; background:#fff; border-radius:24px;
+      box-shadow:0 18px 40px -14px rgba(11,30,61,.45), 0 4px 14px -6px rgba(11,30,61,.18);
+      border:1px solid rgba(15,30,61,.05);
+    }
+    #bottomNav .bn-bubble{
+      position:absolute; top:-24px; width:58px; height:58px; margin-left:-29px; border-radius:50%;
+      background:#fff; box-shadow:0 0 0 6px #123B78, 0 14px 22px -8px rgba(11,30,61,.5);
+      transition:left .38s cubic-bezier(.34,1.4,.5,1);
+      pointer-events:none;
+    }
+    #bottomNav .bn-item{
+      position:relative; z-index:2; flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+      padding-bottom:9px; gap:4px; color:#64748B; -webkit-tap-highlight-color:transparent;
+    }
+    #bottomNav .bn-item .bn-ic{
+      width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+      transition:transform .38s cubic-bezier(.34,1.4,.5,1), color .2s ease;
+    }
+    #bottomNav .bn-item .bn-ic i, #bottomNav .bn-item .bn-ic svg{ width:22px; height:22px; stroke-width:1.9; }
+    #bottomNav .bn-item .bn-lb{ font-size:10.5px; font-weight:600; letter-spacing:-.005em; white-space:nowrap; transition:color .2s ease; }
+    #bottomNav .bn-item.active{ color:#0F1E3D; }
+    #bottomNav .bn-item.active .bn-ic{ transform:translateY(-27px) scale(1.05); color:#1A4E96; }
+    #bottomNav .bn-item.active .bn-ic i, #bottomNav .bn-item.active .bn-ic svg{ stroke-width:2.2; }
+    #bottomNav .bn-item.active .bn-lb{ font-weight:800; }
+    #bottomNav .bn-item:active .bn-ic{ transform:scale(.88); }
+    #bottomNav .bn-item.active:active .bn-ic{ transform:translateY(-27px) scale(.92); }
+    #bottomNav .bn-badge{ position:absolute; top:6px; left:calc(50% + 6px); min-width:16px; height:16px; padding:0 4px; border-radius:99px; background:#E11D48; color:#fff; font-size:9.5px; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; }
+
+    /* ---- Sheet "Lainnya" ---- */
+    #moreSheetWrap{ display:block; position:fixed; inset:0; z-index:45; pointer-events:none; }
+    #moreSheetWrap.open{ pointer-events:auto; }
+    #moreBackdrop{ position:absolute; inset:0; background:rgba(11,30,61,.5); opacity:0; transition:opacity .3s ease; backdrop-filter:blur(2px); }
+    #moreSheetWrap.open #moreBackdrop{ opacity:1; }
+    #moreSheet{
+      position:absolute; left:0; right:0; bottom:0; max-height:86vh; overflow-y:auto; background:#fff;
+      border-radius:30px 30px 0 0; padding:10px 18px calc(24px + env(safe-area-inset-bottom,0px));
+      transform:translateY(105%); transition:transform .38s cubic-bezier(.16,1,.3,1);
+      box-shadow:0 -20px 50px -20px rgba(11,30,61,.4);
+    }
+    #moreSheetWrap.open #moreSheet{ transform:translateY(0); }
+    #moreSheet .ms-grab{ width:42px; height:5px; border-radius:99px; background:#CBD5E1; margin:0 auto 16px; }
+    #moreSheet .ms-user{ display:flex; align-items:center; gap:12px; padding:14px; border-radius:20px; background:linear-gradient(135deg,#0F2A56,#1A4E96); color:#fff; }
+    #moreSheet .ms-user .av{ width:44px; height:44px; border-radius:50%; background:#fff; color:#0F2A56; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    #moreSheet .ms-title{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#64748B; margin:20px 2px 10px; }
+    #moreSheet .ms-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    #moreSheet .ms-tile{
+      display:flex; flex-direction:column; align-items:center; gap:8px; padding:14px 6px 12px; border-radius:18px; text-align:center;
+      background:#F4F8FF; border:1.5px solid transparent; font-size:11.5px; font-weight:600; color:#334155; line-height:1.25;
+      transition:transform .15s ease, background-color .15s ease;
+    }
+    #moreSheet .ms-tile:active{ transform:scale(.94); }
+    #moreSheet .ms-tile .ic{ width:42px; height:42px; border-radius:14px; background:#fff; color:#1A4E96; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 14px -8px rgba(30,64,175,.45); }
+    #moreSheet .ms-tile.active{ background:#E4EEFF; border-color:rgba(37,99,235,.35); color:#0F2A56; }
+    #moreSheet .ms-logout{ width:100%; margin-top:20px; display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border-radius:16px; font-weight:700; font-size:14px; color:#E11D48; background:rgba(225,29,72,.07); }
+  }
+
+  /* ===========================================================
+     MOBILE — form, dialog, input, tabel mengikuti gaya baru
+     =========================================================== */
+  .drawer-grab{ display:none; }
+  @media (max-width:1023px){
+    .input-glass{ font-size:16px !important; min-height:46px; border-radius:14px !important; background:#fff; }
+    textarea.input-glass{ min-height:96px; }
+    .stat-chip:last-child:nth-child(odd){ grid-column:1 / -1; }
+
+    /* filter tanggal dashboard */
+
+    /* target sentuh lebih besar: kotak centang & nomor WA */
+    input[type=checkbox].accent-blue-600{ width:20px; height:20px; flex-shrink:0; }
+    label:has(> input[type=checkbox].accent-blue-600){ display:inline-flex; align-items:center; gap:8px; padding:9px 14px; margin:0 6px 8px 0; border-radius:14px; background:#F4F8FF; border:1.5px solid rgba(15,30,61,.06); font-size:13.5px; font-weight:600; color:#334155; }
+    input[type=tel][id^="pengingatHp_"]{ width:100%; min-height:44px; font-size:16px; border-radius:12px; padding:0 12px; }
+    #dashRange{ display:grid !important; grid-template-columns:1fr 1fr; gap:8px; }
+    #dashRange > span:first-child{ grid-column:1 / -1; }
+    #dashRange > span:nth-child(3){ display:none; }
+    #dashRange input{ width:100%; min-width:0; }
+    #dashRange > button{ grid-column:1 / -1; min-height:44px; border-radius:14px !important; }
+
+    /* tabel -> kartu */
+    .glass-strong:has(> .overflow-x-auto > table.m-cards){ background:transparent; border:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none; }
+    table.m-cards, table.m-cards tbody{ display:block; width:100%; }
+    table.m-cards thead{ display:none; }
+    table.m-cards tr{ display:block; margin:0 0 12px; padding:4px 16px 12px; border-radius:22px; background:#fff;
+      border:1px solid rgba(15,30,61,.07) !important; box-shadow:0 12px 26px -20px rgba(11,30,61,.4); }
+    table.m-cards tr:hover{ background:#fff; }
+    table.m-cards td{ display:flex !important; align-items:center; justify-content:space-between; gap:14px; padding:7px 0 !important; border:0 !important; text-align:right !important; font-size:13px; }
+    table.m-cards td::before{ content:attr(data-label); font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#94A3B8; text-align:left; flex-shrink:0; }
+    table.m-cards td.m-main{ justify-content:flex-start; text-align:left !important; font-size:15px; font-weight:800; padding:12px 0 10px !important; margin-bottom:4px; border-bottom:1px dashed rgba(15,30,61,.12) !important; }
+    table.m-cards td.m-main::before{ display:none; }
+    table.m-cards td.m-act{ justify-content:flex-end; margin-top:6px; padding-top:12px !important; border-top:1px dashed rgba(15,30,61,.12) !important; }
+    table.m-cards td.m-act::before{ display:none; }
+    table.m-cards td.m-act button{ width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; background:#F4F8FF; }
+    table.m-cards tr.m-empty{ padding:0; margin:0; background:transparent; border:0 !important; box-shadow:none; }
+    table.m-cards tr.m-empty td{ display:block !important; text-align:center !important; }
+    table.m-cards tr.m-empty td::before{ display:none; }
+  }
+
+  /* lembar dari bawah: form samping + dialog + konfirmasi */
+  @media (max-width:639px){
+    #drawerPanel{
+      top:auto !important; left:0 !important; right:0 !important; bottom:0 !important;
+      height:auto !important; max-height:92vh; max-height:92dvh; width:100% !important;
+      border-radius:30px 30px 0 0; padding-bottom:env(safe-area-inset-bottom,0px);
+      box-shadow:0 -22px 50px -20px rgba(11,30,61,.5) !important;
+    }
+    .drawer-grab{ display:block; width:42px; height:5px; border-radius:99px; background:#CBD5E1; margin:10px auto 0; flex-shrink:0; }
+    #drawerPanel > div:nth-child(2){ padding:12px 20px 14px !important; }
+    #drawerPanel > div:nth-child(3){ padding:18px 20px 22px !important; min-height:0; }
+    #drawerPanel > div:nth-child(4){ padding:12px 20px 16px !important; gap:10px; background:#fff; }
+    #drawerPanel > div:nth-child(4) button{ flex:1; min-height:50px; justify-content:center; border-radius:16px !important; font-size:14.5px; }
+    #drawerPanel > div:nth-child(4) .btn-primary{ background:linear-gradient(135deg,#0F2A56,#1D5FD6); box-shadow:0 14px 26px -14px rgba(29,95,214,.7); }
+
+    [data-modal]:not(#drawerRoot){ align-items:flex-end !important; padding:0 !important; }
+    [data-modal]:not(#drawerRoot) .modal-panel{
+      max-width:none !important; width:100% !important; border-radius:30px 30px 0 0 !important; max-height:90vh; max-height:90dvh;
+      padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -22px 50px -20px rgba(11,30,61,.5);
+    }
+    [data-modal]:not(#drawerRoot) .modal-panel::before{ content:''; display:block; width:42px; height:5px; border-radius:99px; background:#CBD5E1; margin:10px auto 0; }
+    [data-modal]:not(#drawerRoot) .modal-panel .flex.justify-end{ gap:10px; }
+    [data-modal]:not(#drawerRoot) .modal-panel .flex.justify-end > button{ flex:1; min-height:50px; border-radius:16px !important; font-size:14.5px; }
+    [data-modal]:not(#drawerRoot) .modal-panel.p-6{ padding-bottom:calc(24px + env(safe-area-inset-bottom,0px)) !important; }
+    #confirmModalOkBtn{ box-shadow:0 14px 26px -14px rgba(0,0,0,.4); }
+  }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div id="app" class="flex min-h-screen" style="display:none">
+
+  <!-- Overlay mobile -->
+  <div id="sidebarOverlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-900/40 z-30 lg:hidden opacity-0 pointer-events-none"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar-slide fixed lg:sticky lg:top-0 z-40 h-screen w-72 -translate-x-full lg:translate-x-0 flex flex-col glass-strong border-r border-slate-200/80">
+    <div class="flex items-center gap-3 px-6 py-6 border-b border-slate-200/80">
+      <img src="assets/logo-icon.png" alt="Logo SIKasapa" class="w-11 h-11 rounded-2xl object-contain bg-white shrink-0">
+      <div>
+        <p class="font-extrabold text-[15px] leading-tight tracking-tight">SIKasapa</p>
+        <p class="text-[11px] text-slate-500 leading-tight">Keuangan Ekstrakurikuler</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-4 py-5 space-y-1.5" id="navMenu"></nav>
+
+    <div class="px-4 py-4 border-t border-slate-200/80">
+      <div class="glass rounded-2xl p-3 flex items-center gap-3">
+        <div id="sidebarUserAvatar" class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm" style="background:linear-gradient(135deg,var(--emerald-400),var(--blue-500)); color:#FFFFFF">B</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold truncate" id="sidebarUserName">Bendahara</p>
+          <p class="text-[11px] text-slate-500 truncate" id="sidebarUserRole">Bendahara Sekolah</p>
+        </div>
+        <button onclick="logout()" title="Keluar" class="text-slate-500 hover:text-rose-500 transition-colors">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 flex flex-col min-w-0">
+    <!-- Header mobile (biru melengkung) -->
+    <section id="mobileHero"></section>
+    <!-- Topbar -->
+    <header id="topbar" class="glass border-b border-slate-200/80 sticky top-0 z-20">
+      <div class="flex items-center justify-between px-5 lg:px-8 py-4">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar(true)" title="Buka menu" aria-label="Buka menu navigasi" class="lg:hidden text-slate-600 hover:text-blue-600">
+            <i data-lucide="menu" class="w-6 h-6"></i>
+          </button>
+          <div>
+            <h1 id="pageTitle" class="text-lg lg:text-xl font-bold tracking-tight">Dashboard</h1>
+            <p id="pageSubtitle" class="text-xs text-slate-500 hidden sm:block">Ringkasan keuangan seluruh ekstrakurikuler</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="hidden md:flex items-center gap-2 glass rounded-full px-4 py-2 text-xs text-slate-600">
+            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+            <span id="topbarDate"></span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="flex-1 p-5 lg:p-8 overflow-x-hidden"></main>
+  </div>
+</div>
+
+<!-- Layar WAJIB ganti username & password default (login pertama). Muncul HANYA
+     kalau server menjawab WAJIB_GANTI_PASSWORD (lihat initAdminPage()). Sengaja
+     tanpa sidebar, menu, maupun data. Di luar #app supaya tidak ikut tersembunyi/
+     tampil bersama aplikasi. -->
+<div id="gantiPasswordWajib" style="display:none">
+  <div class="min-h-screen flex items-center justify-center p-5" style="background:linear-gradient(180deg,#EEF4FF 0%,#F7FAFF 45%,#FFFFFF 100%);">
+    <div class="glass-strong rounded-3xl p-7 w-full max-w-md">
+      <div class="flex items-center gap-3 mb-5">
+        <img src="assets/logo-icon.png" alt="" class="w-11 h-11 rounded-2xl object-contain bg-white shrink-0">
+        <div class="min-w-0">
+          <p class="text-base font-bold tracking-tight">Ganti Username &amp; Password</p>
+          <p class="text-xs text-slate-500" id="gantiPwAkun">Akun</p>
+        </div>
+      </div>
+      <div class="rounded-xl px-4 py-3 mb-5 text-xs leading-relaxed" style="background:rgba(245,158,11,0.12); color:#92400E;">
+        Anda masuk memakai akun default. Demi keamanan, ganti username dan password sekarang. Menu aplikasi baru bisa dibuka setelah penggantian berhasil.
+      </div>
+      <form id="formGantiPwWajib" class="space-y-4" onsubmit="simpanGantiPasswordWajib(event)">
+        <div>
+          <label for="gpUsername" class="text-xs font-medium text-slate-600 mb-1.5 block">Username baru</label>
+          <input id="gpUsername" type="text" required minlength="4" autocomplete="username" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="Minimal 4 karakter">
+        </div>
+        <div>
+          <label for="gpPassword" class="text-xs font-medium text-slate-600 mb-1.5 block">Password baru</label>
+          <div style="position:relative;"><input style="padding-right:46px" id="gpPassword" type="password" required minlength="6" autocomplete="new-password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="Minimal 6 karakter"><button type="button" class="pw-eye" aria-label="Tampilkan password" aria-pressed="false" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:0;background:transparent;color:#94A3B8;cursor:pointer;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+        </div>
+        <div>
+          <label for="gpPasswordUlang" class="text-xs font-medium text-slate-600 mb-1.5 block">Ulangi password baru</label>
+          <div style="position:relative;"><input style="padding-right:46px" id="gpPasswordUlang" type="password" required minlength="6" autocomplete="new-password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="Ketik ulang password"><button type="button" class="pw-eye" aria-label="Tampilkan password" aria-pressed="false" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:0;background:transparent;color:#94A3B8;cursor:pointer;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+        </div>
+        <p id="gantiPwError" class="text-xs font-medium hidden" style="color:var(--rose-500)"></p>
+        <button id="gantiPwBtn" type="submit" class="btn-primary w-full py-2.5 rounded-xl text-sm flex items-center justify-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>Simpan &amp; Lanjutkan</button>
+      </form>
+      <button type="button" onclick="logout()" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors mt-5">Keluar</button>
+    </div>
+  </div>
+</div>
+
+<nav id="bottomNav" aria-label="Navigasi utama"></nav>
+<div id="moreSheetWrap" aria-hidden="true">
+  <div id="moreBackdrop" onclick="toggleMoreSheet(false)"></div>
+  <div id="moreSheet" role="dialog" aria-label="Menu lainnya"></div>
+</div>
+
+<div id="toast" class="fixed bottom-5 right-5 z-50 hidden"></div>
+
+<script src="assets/logo-default.js"></script>
+<script src="script_core.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', initAdminPage);
+</script>
+</body>
+</html>

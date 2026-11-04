@@ -312,3 +312,17 @@ SELECT column1 FROM (
          ('Seragam'), ('Piala/Penghargaan'), ('Lainnya')
 )
 WHERE NOT EXISTS (SELECT 1 FROM kategori_pengeluaran LIMIT 1);
+
+-- Riwayat pengingat / konfirmasi WhatsApp per siswa. Tabel ini juga dibuat
+-- otomatis oleh Worker saat pertama dipakai, jadi blok ini opsional.
+CREATE TABLE IF NOT EXISTS pengingat_log (
+  id TEXT PRIMARY KEY,
+  waktu TEXT NOT NULL,
+  siswa_id TEXT NOT NULL,
+  ekskul_id TEXT,
+  jenis TEXT NOT NULL,   -- 'pengingat' | 'konfirmasi'
+  cara TEXT NOT NULL,    -- 'manual' | 'otomatis'
+  ref_id TEXT,           -- id pemasukan (untuk konfirmasi pembayaran)
+  user TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pengingat_log_siswa ON pengingat_log(siswa_id, waktu);

@@ -11,6 +11,7 @@
 -- perintah di atas berurutan)
 -- =========================================================
 
+DROP TABLE IF EXISTS pengingat_log;
 DROP TABLE IF EXISTS absensi;
 DROP TABLE IF EXISTS absensi_guru;
 DROP TABLE IF EXISTS guru_ekstra;

@@ -406,10 +406,10 @@
     /* --- Panel hasil --- */
     #publicResultSection{
       padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(130px + env(safe-area-inset-bottom,0px));
-      background:linear-gradient(180deg,#0F2A56 0,#1A4E96 150px,#F4F8FF 150px);
+      background:linear-gradient(180deg,#0F2A56 0,#1A4E96 96px,#F4F8FF 110px);
     }
     #publicScreen .pub-result-head{ flex-direction:column; align-items:flex-start; gap:14px; margin-bottom:22px; }
-    #publicScreen .pub-result-title{ color:#fff; font-size:21px; font-weight:800; letter-spacing:-.02em; }
+    #publicScreen .pub-result-title{ color:#fff; font-size:28px; font-weight:400; letter-spacing:-.015em; }
 
     /* --- Bottom navigation (3 item) --- */
     #publicScreen #pubBottomNav{
@@ -440,6 +440,21 @@
     #pubBottomNav .bn-item:active .bn-ic{ transform:scale(.88); }
     #pubBottomNav .bn-item.active:active .bn-ic{ transform:translateY(-27px) scale(.92); }
     #toast{ bottom:calc(104px + env(safe-area-inset-bottom,0px)) !important; left:16px; right:16px !important; }
+
+    /* --- Perbaikan tata letak HP: panel tumbuh mengikuti isinya (tidak
+       terpotong), hero dirapatkan, dan konten terakhir (tombol) selalu
+       bisa di-scroll di atas bubble navigasi bawah. --- */
+    #publicScreen .pub-hero-inner{ display:flex; flex-direction:column; min-height:100%; }
+    #publicScreen .pub-panel{ flex:1 0 auto; }
+    #publicScreen .pub-hero-inner > div:first-child{ padding:10px 22px 40px; }
+    #publicScreen .pub-headline{ font-size:clamp(28px,8.4vw,34px); line-height:1.08; letter-spacing:-.02em; }
+    #publicScreen .pub-desc{ font-size:13.5px; line-height:1.6; margin-top:12px; }
+    #publicScreen .pub-trust-row{ gap:8px; margin-top:14px; }
+    #publicScreen .pub-trust-chip{ font-size:11px; padding:6px 11px; gap:6px; }
+    #publicScreen .pub-panel{ overflow:visible; margin-top:-28px; padding:24px 18px calc(128px + env(safe-area-inset-bottom,0px)); }
+    /* Layar HP pendek: deskripsi disembunyikan supaya tombol utama langsung
+       terlihat di atas bubble navigasi (pola yang sama dengan max-height:720px di desktop). */
+    @media (max-height:860px){ #publicScreen .pub-desc{ display:none; } }
   }
 </style>
 </head>

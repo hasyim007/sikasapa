@@ -1266,6 +1266,119 @@ async function gantiPasswordWajib(env, token, usernameBaru, passwordBaru) {
 }
 
 /* =========================================================
+   PENGIRIMAN WHATSAPP OTOMATIS (gateway tidak resmi, mis. Fonnte)
+   Token gateway disimpan sebagai SECRET Worker (env.WA_GATEWAY_TOKEN),
+   TIDAK PERNAH dikirim ke browser. Frontend mengirim pesan SATU PER
+   SATU lewat kirim_wa_satu (dengan jeda di sisi browser), jadi tidak
+   kena batas waktu / jumlah subrequest Worker dan progresnya bisa
+   ditampilkan langsung. Hanya role Bendahara.
+   ========================================================= */
+const WA_GATEWAY_URL_DEFAULT = 'https://api.fonnte.com/send';
+const WA_PESAN_MAKS = 3500;
+
+function normalisasiNomorWa(nomor) {
+  let n = String(nomor || '').replace(/[^\d]/g, '');
+  if (!n) return '';
+  if (n.startsWith('0')) n = '62' + n.slice(1);
+  else if (!n.startsWith('62')) n = '62' + n;
+  return (n.length >= 10 && n.length <= 15) ? n : '';
+}
+
+async function statusWaGateway(env, token) {
+  const sesi = await cekSesi(env.DB, token);
+  if (!sesi) return { ok: false, error: 'Sesi tidak valid, silakan login ulang.' };
+  if (sesi.role !== ROLE_BENDAHARA) return { ok: false, error: 'Hanya Bendahara yang dapat memakai fitur ini.' };
+  return { ok: true, aktif: !!env.WA_GATEWAY_TOKEN };
+}
+
+async function kirimWaSatu(env, token, nomor, pesan) {
+  const sesi = await cekSesi(env.DB, token);
+  if (!sesi) return { ok: false, error: 'Sesi tidak valid, silakan login ulang.' };
+  if (sesi.role !== ROLE_BENDAHARA) return { ok: false, error: 'Hanya Bendahara yang dapat mengirim pesan WhatsApp.' };
+  if (!env.WA_GATEWAY_TOKEN) return { ok: false, code: 'GATEWAY_BELUM_DIATUR', error: 'Token gateway WhatsApp belum diatur di server.' };
+  const target = normalisasiNomorWa(nomor);
+  if (!target) return { ok: false, error: 'Nomor WhatsApp tidak valid.' };
+  const teks = String(pesan == null ? '' : pesan).trim();
+  if (!teks) return { ok: false, error: 'Isi pesan kosong.' };
+  if (teks.length > WA_PESAN_MAKS) return { ok: false, error: 'Isi pesan terlalu panjang.' };
+
+  let res, json = null;
+  try {
+    const form = new FormData();
+    form.append('target', target);
+    form.append('message', teks);
+    res = await fetch(env.WA_GATEWAY_URL || WA_GATEWAY_URL_DEFAULT, {
+      method: 'POST',
+      headers: { Authorization: env.WA_GATEWAY_TOKEN },
+      body: form,
+    });
+    try { json = await res.json(); } catch (e) { /* bukan JSON */ }
+  } catch (e) {
+    return { ok: false, error: 'Tidak dapat menghubungi layanan WhatsApp. Coba lagi.' };
+  }
+  if (res.ok && json && json.status === true) return { ok: true };
+  const alasan = (json && (json.reason || json.detail)) ? String(json.reason || json.detail).slice(0, 200) : ('Gateway membalas status ' + res.status);
+  return { ok: false, error: alasan };
+}
+
+/* =========================================================
+   RIWAYAT PENGINGAT / KONFIRMASI WHATSAPP (per siswa)
+   Tabel pengingat_log DIBUAT OTOMATIS saat pertama dipakai (CREATE TABLE
+   IF NOT EXISTS), jadi tidak wajib menjalankan migrasi manual. Insert-only
+   lewat RPC sendiri (BUKAN save_all) supaya log tidak tertimpa salinan
+   lokal sesi lain. Hanya Bendahara yang mencatat; Bendahara & Kepsek boleh
+   membaca.
+   ========================================================= */
+const PENGINGAT_LOG_LIMIT = 3000;
+const PENGINGAT_JENIS = new Set(['pengingat', 'konfirmasi']);
+const PENGINGAT_CARA = new Set(['manual', 'otomatis']);
+
+async function pastikanTabelPengingatLog(db) {
+  await db.prepare('CREATE TABLE IF NOT EXISTS pengingat_log (id TEXT PRIMARY KEY, waktu TEXT NOT NULL, siswa_id TEXT NOT NULL, ekskul_id TEXT, jenis TEXT NOT NULL, cara TEXT NOT NULL, ref_id TEXT, user TEXT)').run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_pengingat_log_siswa ON pengingat_log(siswa_id, waktu)').run();
+}
+
+function petaPengingatLog(r) {
+  return { id: r.id, waktu: r.waktu, siswaId: r.siswa_id, ekskulId: r.ekskul_id || null, jenis: r.jenis, cara: r.cara, refId: r.ref_id || null, user: r.user || '' };
+}
+
+async function getPengingatLog(env, token) {
+  const db = env.DB;
+  const sesi = await cekSesi(db, token);
+  if (!sesi) return { ok: false, error: 'Sesi tidak valid, silakan login ulang.' };
+  if (sesi.role !== ROLE_BENDAHARA && sesi.role !== ROLE_KEPSEK) return { ok: false, error: 'Tidak diizinkan.' };
+  let rows = [];
+  try {
+    const r = await db.prepare('SELECT * FROM pengingat_log ORDER BY waktu DESC LIMIT 2000').all();
+    rows = (r && r.results) || [];
+  } catch (e) { rows = []; } // tabel belum ada = belum pernah ada pengingat
+  return { ok: true, log: rows.map(petaPengingatLog) };
+}
+
+async function catatPengingat(env, token, siswaId, ekskulId, jenis, cara, refId) {
+  const db = env.DB;
+  const sesi = await cekSesi(db, token);
+  if (!sesi) return { ok: false, error: 'Sesi tidak valid, silakan login ulang.' };
+  if (sesi.role !== ROLE_BENDAHARA) return { ok: false, error: 'Hanya Bendahara yang dapat mencatat pengingat.' };
+  if (!PENGINGAT_JENIS.has(jenis) || !PENGINGAT_CARA.has(cara)) return { ok: false, error: 'Jenis atau cara tidak valid.' };
+  if (!siswaId || typeof siswaId !== 'string') return { ok: false, error: 'Siswa tidak valid.' };
+  const ada = await db.prepare('SELECT id FROM siswa WHERE id = ?').bind(siswaId).first();
+  if (!ada) return { ok: false, error: 'Siswa tidak ditemukan.' };
+  await pastikanTabelPengingatLog(db);
+  const pg = await db.prepare('SELECT bendahara FROM pengaturan WHERE id = 1').first();
+  const user = (pg && pg.bendahara) || 'Bendahara';
+  const entry = {
+    id: crypto.randomUUID(), waktu: waktuIso(), siswa_id: siswaId,
+    ekskul_id: (typeof ekskulId === 'string' && ekskulId) ? ekskulId : null,
+    jenis, cara, ref_id: (typeof refId === 'string' && refId) ? refId.slice(0, 100) : null, user,
+  };
+  await db.prepare('INSERT INTO pengingat_log(id, waktu, siswa_id, ekskul_id, jenis, cara, ref_id, user) VALUES (?,?,?,?,?,?,?,?)')
+    .bind(entry.id, entry.waktu, entry.siswa_id, entry.ekskul_id, entry.jenis, entry.cara, entry.ref_id, entry.user).run();
+  await db.prepare(`DELETE FROM pengingat_log WHERE id NOT IN (SELECT id FROM pengingat_log ORDER BY waktu DESC LIMIT ${PENGINGAT_LOG_LIMIT})`).run();
+  return { ok: true, entry: petaPengingatLog(entry) };
+}
+
+/* =========================================================
    ROUTING RPC
    ========================================================= */
 async function dispatchRpc(name, body, env) {
@@ -1290,6 +1403,10 @@ async function dispatchRpc(name, body, env) {
     case 'catat_log_cetak': return catatLogCetak(env, body.p_token, body.p_aksi, body.p_detail);
     case 'simpan_absensi_guru': return simpanAbsensiGuru(env, body.p_token, body.p_ekstra_id, body.p_tanggal, body.p_catatan);
     case 'simpan_absensi_guru_sendiri': return simpanAbsensiGuruSendiri(env, body.p_token, body.p_ekstra_id, body.p_tanggal, body.p_status, body.p_catatan);
+    case 'status_wa_gateway': return statusWaGateway(env, body.p_token);
+    case 'kirim_wa_satu': return kirimWaSatu(env, body.p_token, body.p_nomor, body.p_pesan);
+    case 'get_pengingat_log': return getPengingatLog(env, body.p_token);
+    case 'catat_pengingat': return catatPengingat(env, body.p_token, body.p_siswa_id, body.p_ekskul_id, body.p_jenis, body.p_cara, body.p_ref_id);
     default: return null;
   }
 }

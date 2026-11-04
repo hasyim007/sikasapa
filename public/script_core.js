@@ -1884,6 +1884,7 @@ function renderPemasukan(){
                   <div class="flex items-center justify-end gap-1">
                     <button onclick="cetakKwitansi('${p.id}')" title="Cetak kwitansi" aria-label="Cetak kwitansi ${escapeHtml(siswaById(p.siswaId)?.nama||'')}" class="text-slate-500 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors"><i data-lucide="receipt" class="w-4 h-4"></i></button>
                     ${canEdit() ? `
+                    <button onclick="kirimKonfirmasiManual('${p.id}')" title="${sudahDikonfirmasi(p.id) ? 'Konfirmasi WhatsApp sudah dikirim (klik untuk kirim lagi)' : 'Kirim konfirmasi ke WhatsApp wali'}" aria-label="Kirim konfirmasi WhatsApp ${escapeHtml(siswaById(p.siswaId)?.nama||'')}" class="${sudahDikonfirmasi(p.id) ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'} p-1.5 rounded-lg hover:bg-emerald-50 transition-colors"><i data-lucide="${sudahDikonfirmasi(p.id) ? 'message-circle-check' : 'message-circle'}" class="w-4 h-4"></i></button>
                     <button onclick="openPemasukanForm(null,'${p.id}')" title="Edit pembayaran" aria-label="Edit pembayaran ${escapeHtml(siswaById(p.siswaId)?.nama||'')}" class="text-slate-500 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"><i data-lucide="pencil" class="w-4 h-4"></i></button>
                     <button onclick="deletePemasukan('${p.id}')" title="Hapus pembayaran" aria-label="Hapus pembayaran ${escapeHtml(siswaById(p.siswaId)?.nama||'')}" class="text-slate-500 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     ` : ''}
@@ -1969,11 +1970,14 @@ function openPemasukanForm(prefill, editId){
       <div>${fieldLabel('Keterangan (opsional)')}
         <input id="pmKeterangan" type="text" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="Catatan tambahan">
       </div>
+      ${editing ? '' : formWaKonfirmasiHtml()}
     </form>
   `, footerHtml: `
     <button onclick="closeDrawer()" class="btn-secondary px-4 py-2.5 rounded-xl text-sm">Batal</button>
     <button id="btnSimpanPemasukan" onclick="submitPemasukan(${editing ? `'${editId}'` : 'null'})" class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>Simpan</button>
   `});
+
+  pasangFormWaKonfirmasi();
 
   if(editing){
     document.getElementById('pmEkskul').value = editing.ekskulId;
@@ -2014,6 +2018,7 @@ function onPmEkskulChange(keepSiswaId, keepPeriode){
   }
   siswaSel.innerHTML = '<option value="">Pilih siswa</option>' + anggota.map(s=>`<option value="${s.id}">${escapeHtml(s.nama)} (${escapeHtml(s.kelas)})${s.aktif===false?' — nonaktif':''}</option>`).join('');
   document.getElementById('pmNominal').value = ek.tarif;
+  setTimeout(perbaruiInfoWaPembayaran, 0);
 
   if(ek.jenisPembayaran === 'bulanan'){
     periodeWrap.innerHTML = `${fieldLabel('Bulan Pembayaran')}
@@ -2065,6 +2070,119 @@ function hariJadwalCocok(ek, iso){
   return (ek.hariJadwal||[]).some(h=>HARI_MAP[h]===hari);
 }
 
+/* =========================================================
+   KONFIRMASI PEMBAYARAN KE WHATSAPP WALI
+   Saat Bendahara mencatat pembayaran BARU, pesan konfirmasi dikirim ke
+   nomor WA wali (otomatis lewat gateway bila aktif, kalau tidak
+   WhatsApp dibuka untuk dikirim manual). Tombol ikon WhatsApp di daftar
+   Pemasukan bisa mengirim/ulang kapan saja.
+   ========================================================= */
+const TEMPLATE_WA_KONFIRMASI = "Assalamu'alaikum Bapak/Ibu wali dari ananda {namaSiswa} ({kelas}). Kami mengonfirmasi bahwa pembayaran iuran ekstrakurikuler {ekskul} {periode} sebesar {nominal} telah kami terima pada {tanggalBayar}. Terima kasih atas pembayarannya. {namaSekolah}";
+
+function susunPesanKonfirmasi(pm){
+  const s = siswaById(pm.siswaId), ek = ekskulById(pm.ekskulId);
+  return susunPesanPengingat(TEMPLATE_WA_KONFIRMASI, {
+    namaSiswa: s ? s.nama : '', kelas: s ? s.kelas : '', ekskul: ek ? ek.nama : '',
+    periode: pm.jenis === 'bulanan' ? `untuk bulan ${bulanNama(pm.periode)}` : `untuk pertemuan tanggal ${tanggalIndo(pm.periode)}`,
+    nominal: rupiah(pm.nominal), tanggalBayar: tanggalIndo(pm.tanggalBayar), namaSekolah: namaSekolahSingkat(),
+  });
+}
+
+function sudahDikonfirmasi(pmId){
+  return pengingatLog.some(l=> l.jenis === 'konfirmasi' && l.refId === pmId);
+}
+
+function formWaKonfirmasiHtml(){
+  return `<div class="rounded-xl p-3.5 border border-slate-100 bg-slate-50/60">
+    <label class="flex items-start gap-2.5 cursor-pointer">
+      <input id="pmKirimWa" type="checkbox" class="accent-emerald-600 mt-1" checked disabled>
+      <span class="text-sm text-slate-700 font-medium">Kirim konfirmasi pembayaran ke WhatsApp wali
+        <span id="pmWaInfo" class="block text-[11px] font-normal text-slate-500 mt-0.5">Pilih siswa dahulu.</span></span>
+    </label>
+    <details class="mt-2"><summary class="text-[11px] font-semibold text-slate-500 cursor-pointer">Lihat isi pesan</summary>
+      <p id="pmWaPreview" class="text-[11px] text-slate-500 mt-1.5 whitespace-pre-line"></p></details>
+  </div>`;
+}
+
+function perbaruiInfoWaPembayaran(){
+  const cb = document.getElementById('pmKirimWa');
+  if(!cb) return;
+  const info = document.getElementById('pmWaInfo'), prev = document.getElementById('pmWaPreview');
+  const siswaId = (document.getElementById('pmSiswa')||{}).value;
+  const ekskulId = (document.getElementById('pmEkskul')||{}).value;
+  const ek = ekskulById(ekskulId), s = siswaById(siswaId);
+  if(!s){ cb.disabled = true; info.textContent = 'Pilih siswa dahulu.'; prev.textContent = ''; return; }
+  if(!normalizeNomorWa(s.waliHp)){
+    cb.disabled = true; cb.checked = false;
+    info.textContent = 'Nomor WA wali belum diisi atau tidak valid. Isi di menu Data Siswa jika ingin mengirim konfirmasi.';
+    prev.textContent = '';
+    return;
+  }
+  cb.disabled = false;
+  if(!cb.dataset.touched) cb.checked = true;
+  info.textContent = `Ke ${s.waliHp} — ` + (waGatewayAktif === true ? 'dikirim otomatis setelah disimpan.' : 'WhatsApp akan terbuka setelah disimpan; tekan Kirim di sana.');
+  const periodeEl = document.getElementById('pmPeriode');
+  const nominal = parseFloat((document.getElementById('pmNominal')||{}).value);
+  const tgl = (document.getElementById('pmTanggalBayar')||{}).value;
+  if(ek && periodeEl && periodeEl.value && !isNaN(nominal) && tgl){
+    prev.textContent = susunPesanKonfirmasi({ siswaId, ekskulId, jenis:ek.jenisPembayaran, periode:periodeEl.value, nominal, tanggalBayar:tgl });
+  } else prev.textContent = '';
+}
+
+function pasangFormWaKonfirmasi(){
+  const form = document.getElementById('formPemasukan');
+  const cb = document.getElementById('pmKirimWa');
+  if(!form || !cb) return;
+  // Ditandai SEBELUM event naik ke form (input/change di form memanggil perbaruiInfoWaPembayaran),
+  // kalau tidak centang pengguna langsung ditimpa lagi.
+  ['click','input','change'].forEach(ev=> cb.addEventListener(ev, ()=>{ cb.dataset.touched = '1'; }));
+  form.addEventListener('input', perbaruiInfoWaPembayaran);
+  form.addEventListener('change', perbaruiInfoWaPembayaran);
+  perbaruiInfoWaPembayaran();
+  cekWaGatewayAktif().then(perbaruiInfoWaPembayaran);
+}
+
+/* Dipanggil setelah pembayaran baru tersimpan. Cabang manual memanggil
+   window.open SEBELUM await apa pun supaya tidak diblokir pop-up blocker
+   (masih dalam rangkaian klik pengguna). */
+async function kirimKonfirmasiPembayaran(pm){
+  const s = siswaById(pm.siswaId);
+  const nomor = s ? s.waliHp : '';
+  if(!normalizeNomorWa(nomor)){ showToast('Nomor WA wali belum valid, konfirmasi tidak dikirim.', 'info'); return; }
+  const pesan = susunPesanKonfirmasi(pm);
+  if(waGatewayAktif === true){
+    showToast('Mengirim konfirmasi WhatsApp ke wali...', 'info');
+    let res;
+    try{ res = await rpc('kirim_wa_satu', { p_token:getToken()||'', p_nomor:nomor, p_pesan:pesan }); }
+    catch(e){ res = { ok:false, error:e.message }; }
+    if(res && res.ok){
+      catatPengingatServer(pm.siswaId, pm.ekskulId, 'konfirmasi', 'otomatis', pm.id).then(()=>{ if(currentView==='pemasukan') renderView('pemasukan'); });
+      showToast(`Konfirmasi WhatsApp terkirim ke wali ${s.nama}.`);
+    } else {
+      showToast('Pembayaran tersimpan, tetapi konfirmasi WA gagal: ' + ((res && res.error) || 'tidak diketahui') + '. Kirim manual lewat ikon WhatsApp di daftar Pemasukan.', 'error');
+    }
+    return;
+  }
+  const link = buildWaLink(nomor, pesan);
+  window.open(link, '_blank');
+  catatPengingatServer(pm.siswaId, pm.ekskulId, 'konfirmasi', 'manual', pm.id);
+}
+
+function kirimKonfirmasiManual(pmId){
+  if(!requireEdit()) return;
+  const pm = DB.pemasukan.find(x=>x.id===pmId);
+  if(!pm) return;
+  const s = siswaById(pm.siswaId);
+  if(!s || !normalizeNomorWa(s.waliHp)){ showToast('Nomor WA wali ' + (s ? s.nama : '') + ' belum diisi atau tidak valid. Isi di menu Data Siswa.', 'error'); return; }
+  const buka = ()=>{
+    window.open(buildWaLink(s.waliHp, susunPesanKonfirmasi(pm)), '_blank');
+    catatPengingatServer(pm.siswaId, pm.ekskulId, 'konfirmasi', 'manual', pm.id).then(()=>{ if(currentView==='pemasukan') renderView('pemasukan'); });
+  };
+  if(sudahDikonfirmasi(pmId)){
+    showConfirm({ title:'Konfirmasi Sudah Pernah Dikirim', message:'Konfirmasi untuk pembayaran ini sudah pernah dikirim. Kirim lagi?', confirmText:'Kirim Lagi', onConfirm: buka });
+  } else buka();
+}
+
 function submitPemasukan(editId){
   if(!requireEdit()) return;
   const ekskulId = document.getElementById('pmEkskul').value;
@@ -2084,6 +2202,8 @@ function submitPemasukan(editId){
   if(nominal > 100000000){ markInvalid('pmNominal','Terlalu besar'); showToast('Nominal melebihi batas wajar (Rp 100.000.000). Periksa kembali angkanya.', 'error'); return; }
   if(tanggalBayar > hariIniStr()){ markInvalid('pmTanggalBayar','Tidak boleh di masa depan'); showToast('Tanggal bayar tidak boleh di masa depan.', 'error'); return; }
   const ek = ekskulById(ekskulId);
+  const cbWa = document.getElementById('pmKirimWa');
+  const kirimWa = !editId && !!cbWa && cbWa.checked && !cbWa.disabled;
 
   if(editId){
     simpanPemasukanEdit(editId, siswaId, ekskulId, ek, periodeEl.value, nominal, tanggalBayar, keterangan);
@@ -2097,11 +2217,11 @@ function submitPemasukan(editId){
       title: 'Pembayaran Serupa Sudah Ada',
       message: `${escapeHtml(siswaById(siswaId)?.nama||'')} sudah tercatat bayar untuk periode ${label} sebesar ${rupiah(duplikat.nominal)} pada ${tanggalIndo(duplikat.tanggalBayar)}.\n\nTetap simpan sebagai pembayaran tambahan?`,
       confirmText: 'Tetap Simpan',
-      onConfirm: ()=> simpanPemasukan(siswaId, ekskulId, ek, periodeEl.value, nominal, tanggalBayar, keterangan)
+      onConfirm: ()=> simpanPemasukan(siswaId, ekskulId, ek, periodeEl.value, nominal, tanggalBayar, keterangan, kirimWa)
     });
     return;
   }
-  simpanPemasukan(siswaId, ekskulId, ek, periodeEl.value, nominal, tanggalBayar, keterangan);
+  simpanPemasukan(siswaId, ekskulId, ek, periodeEl.value, nominal, tanggalBayar, keterangan, kirimWa);
 }
 
 function simpanPemasukanEdit(id, siswaId, ekskulId, ek, periode, nominal, tanggalBayar, keterangan){
@@ -2115,13 +2235,15 @@ function simpanPemasukanEdit(id, siswaId, ekskulId, ek, periode, nominal, tangga
   renderView('pemasukan');
 }
 
-function simpanPemasukan(siswaId, ekskulId, ek, periode, nominal, tanggalBayar, keterangan){
-  DB.pemasukan.push({ id:uid('pm'), siswaId, ekskulId, jenis:ek.jenisPembayaran, periode, nominal, tanggalBayar, keterangan });
+function simpanPemasukan(siswaId, ekskulId, ek, periode, nominal, tanggalBayar, keterangan, kirimWa){
+  const baru = { id:uid('pm'), siswaId, ekskulId, jenis:ek.jenisPembayaran, periode, nominal, tanggalBayar, keterangan };
+  DB.pemasukan.push(baru);
   catatAktivitas('Tambah Pemasukan', `${siswaById(siswaId)?.nama||'-'} — ${ek.nama} — ${rupiah(nominal)}`);
   saveDB(DB);
   closeDrawer();
   showToast('Pembayaran berhasil dicatat.');
   renderView('pemasukan');
+  if(kirimWa) kirimKonfirmasiPembayaran(baru);
 }
 
 function deletePemasukan(id){
@@ -2983,7 +3105,7 @@ function simpanTemplatePengingat(field, textareaId){
    (selalu nilai terbaru, walau blur belum sempat terjadi), dan
    memastikan nomor itu ikut tersimpan ke database lewat
    updateWaliHpDariPengingat() sebelum link WA dibuka. */
-function kirimPengingatWa(siswaId, pesan, namaSiswa){
+function kirimPengingatWa(siswaId, pesan, namaSiswa, ekskulId){
   const input = document.getElementById('pengingatHp_' + siswaId);
   const nomor = input ? input.value : '';
   updateWaliHpDariPengingat(siswaId, nomor);
@@ -2991,6 +3113,8 @@ function kirimPengingatWa(siswaId, pesan, namaSiswa){
   if(!link){ showToast('Nomor WA belum diisi atau tidak valid untuk ' + namaSiswa + '.', 'error'); return; }
   window.open(link, '_blank');
   logCetak('Kirim Pengingat WA', namaSiswa);
+  catatPengingatServer(siswaId, ekskulId, 'pengingat', 'manual').then(()=> perbaruiCatatanPengingat());
+  perbaruiCatatanPengingat();
 }
 
 /* Kartu Bulanan di menu Pengingat — memakai hitungTunggakanBulananGabungan()
@@ -3019,11 +3143,12 @@ function kartuPengingatBulananHtml(r){
               <p class="text-sm font-medium text-slate-800 truncate">${escapeHtml(item.siswa.nama)}</p>
               <p class="text-xs text-slate-400 truncate">${escapeHtml(item.siswa.kelas)}</p>
               <p class="text-[11px] text-rose-500 mt-0.5 truncate" title="${escapeHtml(daftarBulanTeks)}">Belum: ${escapeHtml(daftarBulanTeks)}</p>
+              ${catatanPengingatHtml(item.siswa.id, r.ek.id)}
             </div>
             <input type="tel" id="pengingatHp_${item.siswa.id}" placeholder="08xxxxxxxxxx" value="${escapeHtml(item.siswa.waliHp||'')}" ${canEdit()?'':'disabled'}
               onblur="updateWaliHpDariPengingat('${item.siswa.id}', this.value)"
               class="glass rounded-lg px-2.5 py-1.5 text-xs w-32 shrink-0" title="Nomor WA wali murid ${escapeHtml(item.siswa.nama)}">
-            ${canEdit() ? `<button onclick='kirimPengingatWa(${jsAttr(item.siswa.id)}, ${jsAttr(pesan)}, ${jsAttr(item.siswa.nama)})' class="btn-primary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shrink-0"><i data-lucide="send" class="w-3.5 h-3.5"></i>Kirim</button>` : ''}
+            ${canEdit() ? `<button onclick='kirimPengingatWa(${jsAttr(item.siswa.id)}, ${jsAttr(pesan)}, ${jsAttr(item.siswa.nama)}, ${jsAttr(r.ek.id)})' class="btn-primary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shrink-0"><i data-lucide="send" class="w-3.5 h-3.5"></i>Kirim</button>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -3059,16 +3184,359 @@ function kartuPengingatPertemuanHtml(r){
               <p class="text-sm font-medium text-slate-800 truncate">${escapeHtml(item.siswa.nama)}</p>
               <p class="text-xs text-slate-400 truncate">${escapeHtml(item.siswa.kelas)} · kurang ${item.kurang}x</p>
               <p class="text-[11px] text-amber-500 mt-0.5 truncate" title="${escapeHtml(daftarPertemuanTeks)}">Belum: ${escapeHtml(daftarPertemuanTeks)}</p>
+              ${catatanPengingatHtml(item.siswa.id, r.ek.id)}
             </div>
             <input type="tel" id="pengingatHp_${item.siswa.id}" placeholder="08xxxxxxxxxx" value="${escapeHtml(item.siswa.waliHp||'')}" ${canEdit()?'':'disabled'}
               onblur="updateWaliHpDariPengingat('${item.siswa.id}', this.value)"
               class="glass rounded-lg px-2.5 py-1.5 text-xs w-32 shrink-0" title="Nomor WA wali murid ${escapeHtml(item.siswa.nama)}">
-            ${canEdit() ? `<button onclick='kirimPengingatWa(${jsAttr(item.siswa.id)}, ${jsAttr(pesan)}, ${jsAttr(item.siswa.nama)})' class="btn-primary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shrink-0"><i data-lucide="send" class="w-3.5 h-3.5"></i>Kirim</button>` : ''}
+            ${canEdit() ? `<button onclick='kirimPengingatWa(${jsAttr(item.siswa.id)}, ${jsAttr(pesan)}, ${jsAttr(item.siswa.nama)}, ${jsAttr(r.ek.id)})' class="btn-primary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shrink-0"><i data-lucide="send" class="w-3.5 h-3.5"></i>Kirim</button>` : ''}
           </div>`;
         }).join('')}
       </div>
     </div>
   `;
+}
+
+/* =========================================================
+   KIRIM OTOMATIS KE SEMUA TUNGGAKAN (via gateway WhatsApp di server)
+   Pesan dikirim SATU PER SATU dari browser dengan jeda acak, supaya
+   tidak terlihat seperti spam dan progresnya tampil langsung. Halaman
+   ini harus tetap terbuka selama proses berjalan; menutup jendela
+   progres = menghentikan pengiriman. Catatan "sudah terkirim hari ini"
+   disimpan di browser ini (per hari) agar tidak terkirim dobel.
+   ========================================================= */
+var WA_MASSAL_JEDA_MS = [8000, 15000];
+const WA_MASSAL_MAKS = 100;
+let waMassalJalan = false, waMassalBerhenti = false;
+
+/* ---------- RIWAYAT PENGINGAT / KONFIRMASI (disimpan di server, tabel pengingat_log) ---------- */
+let pengingatLog = [];
+let waGatewayAktif = null, waGatewayGalat = '';
+
+function tanggalLokalDariIso(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  const p2 = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+}
+
+async function muatPengingatLog(){
+  if(currentRole !== 'bendahara' && currentRole !== 'kepsek') return false;
+  try{
+    const res = await rpc('get_pengingat_log', { p_token: getToken()||'' });
+    if(res && res.ok && Array.isArray(res.log)){
+      const lokal = pengingatLog.filter(l=> String(l.id).startsWith('lokal-'));
+      pengingatLog = res.log.concat(lokal);
+      return true;
+    }
+  }catch(e){ console.error('Gagal memuat riwayat pengingat:', e); }
+  return false;
+}
+
+/* Optimistis: langsung tercatat di memori (supaya antrean/pengingat hari ini
+   langsung tahu), lalu disimpan ke server di latar belakang. */
+function catatPengingatServer(siswaId, ekskulId, jenis, cara, refId){
+  const lokal = { id:'lokal-' + Date.now() + '-' + Math.random().toString(36).slice(2,7), waktu:new Date().toISOString(), siswaId, ekskulId:ekskulId||null, jenis, cara, refId:refId||null, user:'' };
+  pengingatLog.unshift(lokal);
+  return rpc('catat_pengingat', { p_token:getToken()||'', p_siswa_id:siswaId, p_ekskul_id:ekskulId||'', p_jenis:jenis, p_cara:cara, p_ref_id:refId||'' })
+    .then(res=>{
+      if(res && res.ok && res.entry){ const i = pengingatLog.indexOf(lokal); if(i > -1) pengingatLog[i] = res.entry; }
+      else console.error('Gagal mencatat riwayat pengingat:', res && res.error);
+    })
+    .catch(err=> console.error('Gagal mencatat riwayat pengingat:', err));
+}
+
+function waTerkirimHariIni(){
+  const hari = hariIniStr();
+  return pengingatLog
+    .filter(l=> l.jenis === 'pengingat' && tanggalLokalDariIso(l.waktu) === hari)
+    .map(l=> `${l.siswaId}|${l.ekskulId||''}`);
+}
+
+function teksTerakhirDiingatkan(siswaId, ekskulId){
+  const daftar = pengingatLog.filter(l=> l.jenis === 'pengingat' && l.siswaId === siswaId && (l.ekskulId||'') === (ekskulId||''));
+  if(!daftar.length) return 'Belum pernah diingatkan';
+  const terakhir = daftar.slice().sort((a,b)=> String(b.waktu).localeCompare(String(a.waktu)))[0];
+  const tgl = tanggalLokalDariIso(terakhir.waktu);
+  const selisih = Math.round((new Date(hariIniStr()+'T00:00:00') - new Date(tgl+'T00:00:00')) / 86400000);
+  const kapan = selisih <= 0 ? 'hari ini' : (selisih === 1 ? 'kemarin' : `${selisih} hari lalu`);
+  return `Terakhir diingatkan ${kapan} (${terakhir.cara}) · ${daftar.length}x`;
+}
+
+function catatanPengingatHtml(siswaId, ekskulId){
+  return `<p data-note="${escapeHtml(siswaId)}|${escapeHtml(ekskulId)}" class="text-[11px] text-slate-400 mt-0.5 truncate">${escapeHtml(teksTerakhirDiingatkan(siswaId, ekskulId))}</p>`;
+}
+
+function perbaruiCatatanPengingat(){
+  document.querySelectorAll('[data-note]').forEach(el=>{
+    const [sid, eid] = el.dataset.note.split('|');
+    el.textContent = teksTerakhirDiingatkan(sid, eid);
+  });
+  muatPanelWaMassal();
+}
+
+async function cekWaGatewayAktif(paksa){
+  if(waGatewayAktif !== null && !paksa) return waGatewayAktif;
+  try{
+    const res = await rpc('status_wa_gateway', { p_token: getToken()||'' });
+    if(res && res.ok){ waGatewayAktif = !!res.aktif; waGatewayGalat = ''; }
+    else { waGatewayAktif = false; waGatewayGalat = (res && res.error) || ''; }
+  }catch(e){ waGatewayAktif = false; waGatewayGalat = 'Tidak dapat memeriksa status pengiriman otomatis.'; }
+  return waGatewayAktif;
+}
+
+/* Satu entri per (siswa, ekskul) yang menunggak — pesan disusun dengan
+   template & fungsi hitung yang SAMA dengan kartu di menu Pengingat. */
+function kumpulkanPesanPengingat(){
+  const pg = DB.pengaturan, out = [];
+  hitungTunggakanBulananGabungan().forEach(r=> r.rincian.forEach(item=>{
+    const daftar = item.belumBulan.map(bulanNama).join(', ');
+    out.push({
+      key:`${item.siswa.id}|${r.ek.id}`, siswaId:item.siswa.id, ekskulId:r.ek.id, nama:item.siswa.nama, kelas:item.siswa.kelas, ekskul:r.ek.nama,
+      nomor:item.siswa.waliHp||'',
+      pesan: susunPesanPengingat(pg.templateWaBulanan, {
+        namaSiswa:item.siswa.nama, waliNama:item.siswa.waliNama||'Bapak/Ibu', kelas:item.siswa.kelas,
+        ekskul:r.ek.nama, daftarBulan:daftar, totalTunggakan:rupiah(item.kurangRp),
+        jumlahPertemuanKurang:'', namaSekolah:namaSekolahSingkat(),
+      }),
+    });
+  }));
+  hitungEstimasiTunggakanPertemuan().forEach(r=> r.rincian.forEach(item=>{
+    out.push({
+      key:`${item.siswa.id}|${r.ek.id}`, siswaId:item.siswa.id, ekskulId:r.ek.id, nama:item.siswa.nama, kelas:item.siswa.kelas, ekskul:r.ek.nama,
+      nomor:item.siswa.waliHp||'',
+      pesan: susunPesanPengingat(pg.templateWaPertemuan, {
+        namaSiswa:item.siswa.nama, waliNama:item.siswa.waliNama||'Bapak/Ibu', kelas:item.siswa.kelas,
+        ekskul:r.ek.nama, daftarBulan:daftarPertemuanBelumTeks(item.detailBelum),
+        totalTunggakan:rupiah(item.kurang*r.ek.tarif), jumlahPertemuanKurang:item.kurang,
+        namaSekolah:namaSekolahSingkat(),
+      }),
+    });
+  }));
+  return out;
+}
+
+function waRingkasanAntrean(){
+  const semua = kumpulkanPesanPengingat();
+  const sudah = new Set(waTerkirimHariIni());
+  const berNomor = semua.filter(d=> normalizeNomorWa(d.nomor));
+  const tanpaNomor = semua.filter(d=> !normalizeNomorWa(d.nomor));
+  const belum = berNomor.filter(d=> !sudah.has(d.key));
+  return { semua, berNomor, tanpaNomor, belum, jumlahSudah: berNomor.length - belum.length };
+}
+
+async function muatPanelWaMassal(){
+  const el = document.getElementById('waMassalPanel');
+  if(!el || !canEdit()) return;
+  const aktif = await cekWaGatewayAktif();
+  const galat = waGatewayGalat;
+  if(!document.getElementById('waMassalPanel')) return; // pengguna sudah pindah menu
+  const ringkas = waRingkasanAntrean();
+  const nBelum = ringkas.belum.length;
+  const stat = (label, nilai, warna)=>`<div class="glass rounded-xl px-3 py-2.5 text-center"><p class="text-lg font-bold" style="color:${warna}">${nilai}</p><p class="text-[11px] text-slate-500">${label}</p></div>`;
+  const nonaktif = (n)=> n ? '' : 'disabled';
+  const kelasNonaktif = (n)=> n ? '' : 'opacity-50 cursor-not-allowed';
+  el.innerHTML = `
+    <div class="glass-strong rounded-3xl p-5">
+      <p class="font-bold text-sm flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i>Kirim ke Semua Tunggakan</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4">
+        ${stat('Siap dikirim', nBelum, '#059669')}
+        ${stat('Sudah diingatkan hari ini', ringkas.jumlahSudah, '#2563EB')}
+        ${stat('Tanpa nomor WA', ringkas.tanpaNomor.length, ringkas.tanpaNomor.length ? '#E11D48' : '#94A3B8')}
+        ${stat('Total tunggakan', ringkas.semua.length, '#475569')}
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs font-bold text-slate-700">Manual satu per satu</p>
+          <p class="text-[11px] text-slate-500 mt-1 mb-3">Gratis dan aman: WhatsApp terbuka untuk tiap siswa dengan pesan siap kirim, Anda tekan Kirim sendiri, lalu lanjut ke siswa berikutnya.</p>
+          <button onclick="bukaAntreanWaManual()" ${nonaktif(nBelum)} class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 ${kelasNonaktif(nBelum)}"><i data-lucide="list-checks" class="w-4 h-4"></i>Mulai Antrean Manual (${nBelum})</button>
+        </div>
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs font-bold text-slate-700">Otomatis (gateway WhatsApp)</p>
+          ${aktif ? `
+            <p class="text-[11px] text-slate-500 mt-1 mb-3">Dikirim sendiri satu per satu dengan jeda acak. Halaman harus tetap terbuka sampai selesai.</p>
+            <button onclick="bukaKonfirmasiWaMassal()" ${nonaktif(nBelum)} class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 ${kelasNonaktif(nBelum)}"><i data-lucide="zap" class="w-4 h-4"></i>Kirim Otomatis (${Math.min(nBelum, WA_MASSAL_MAKS)})</button>
+          ` : `
+            <p class="text-[11px] text-slate-500 mt-1">${galat ? escapeHtml(galat) + ' ' : ''}Belum diaktifkan. Pakai antrean manual di samping, atau aktifkan nanti: daftar di penyedia gateway (mis. Fonnte), pindai QR, lalu jalankan <code>npx wrangler secret put WA_GATEWAY_TOKEN</code> dan <code>npx wrangler deploy</code>. Lihat CATATAN-WA-OTOMATIS.md.</p>
+          `}
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 mt-3">
+        ${aktif ? `<details class="text-xs"><summary class="font-semibold text-slate-600 cursor-pointer">Kirim pesan tes otomatis ke nomor sendiri</summary>
+          <div class="flex flex-wrap items-center gap-2 mt-2.5">
+            <input id="waTesNomor" type="tel" placeholder="08xxxxxxxxxx" class="glass rounded-lg px-2.5 py-2 text-xs w-44">
+            <button onclick="kirimWaTes()" class="glass px-3 py-2 rounded-lg text-xs font-semibold text-slate-700">Kirim Tes</button>
+          </div></details>` : ''}
+      </div>
+    </div>`;
+  safeIcons();
+}
+
+/* ---------- ANTREAN MANUAL: WhatsApp dibuka satu per satu ---------- */
+let waManual = null;
+
+function bukaAntreanWaManual(){
+  if(!requireEdit() || waMassalJalan) return;
+  const antrean = waRingkasanAntrean().belum;
+  if(!antrean.length){ showToast('Tidak ada pesan yang perlu dikirim.', 'info'); return; }
+  waManual = { antrean, idx:0, dibuka:false, ok:0, lewat:0 };
+  renderAntreanWaManual();
+}
+
+function renderAntreanWaManual(){
+  const w = waManual; if(!w) return;
+  if(w.idx >= w.antrean.length){ selesaiAntreanWaManual(); return; }
+  const d = w.antrean[w.idx];
+  const total = w.antrean.length;
+  openModal(`Antrean Manual: ${w.idx + 1} dari ${total}`, `
+    <div class="h-2 rounded-full bg-slate-100 overflow-hidden mb-4"><div class="h-full rounded-full" style="width:${Math.round((w.idx/total)*100)}%; background:linear-gradient(90deg,#1D5FD6,#2563EB)"></div></div>
+    <p class="text-base font-bold text-slate-800">${escapeHtml(d.nama)}</p>
+    <p class="text-xs text-slate-500">${escapeHtml(d.kelas)} &middot; ${escapeHtml(d.ekskul)} &middot; ${escapeHtml(d.nomor)}</p>
+    <textarea readonly rows="6" class="w-full glass rounded-xl px-3 py-2.5 text-xs mt-3">${escapeHtml(d.pesan)}</textarea>
+    <p class="text-[11px] text-slate-400 mt-2">${w.dibuka ? 'Setelah menekan Kirim di WhatsApp, kembali ke sini lalu tekan "Sudah Terkirim".' : 'Tekan "Buka WhatsApp", lalu tekan Kirim di WhatsApp.'} ${w.ok ? `Sejauh ini ${w.ok} ditandai terkirim.` : ''}</p>
+  `, `
+    <button onclick="tutupAntreanWaManual()" class="btn-secondary px-3 py-2.5 rounded-xl text-sm">Berhenti</button>
+    <button onclick="waManualLewati()" class="btn-secondary px-3 py-2.5 rounded-xl text-sm">Lewati</button>
+    ${w.dibuka
+      ? `<button onclick="waManualTerkirim()" class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>Sudah Terkirim</button>
+         <button onclick="waManualBukaWa()" class="glass px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600">Buka Lagi</button>`
+      : `<button onclick="waManualBukaWa()" class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"><i data-lucide="send" class="w-4 h-4"></i>Buka WhatsApp</button>`}
+  `);
+  safeIcons();
+}
+
+function waManualBukaWa(){
+  const w = waManual; if(!w) return;
+  const d = w.antrean[w.idx];
+  const link = buildWaLink(d.nomor, d.pesan);
+  if(!link){ showToast('Nomor WA tidak valid untuk ' + d.nama + '.', 'error'); return; }
+  window.open(link, '_blank');
+  w.dibuka = true;
+  renderAntreanWaManual();
+}
+function waManualTerkirim(){
+  const w = waManual; if(!w) return;
+  { const d0 = w.antrean[w.idx]; catatPengingatServer(d0.siswaId, d0.ekskulId, 'pengingat', 'manual'); }
+  w.ok++; w.idx++; w.dibuka = false;
+  renderAntreanWaManual();
+}
+function waManualLewati(){
+  const w = waManual; if(!w) return;
+  w.lewat++; w.idx++; w.dibuka = false;
+  renderAntreanWaManual();
+}
+function tutupAntreanWaManual(){
+  const w = waManual; waManual = null;
+  closeModal();
+  if(w && (w.ok || w.lewat)) logCetak('Kirim Pengingat WA Manual (Antrean)', `${w.ok} ditandai terkirim, ${w.lewat} dilewati`);
+  muatPanelWaMassal();
+}
+function selesaiAntreanWaManual(){
+  const w = waManual; if(!w) return;
+  const tanpa = waRingkasanAntrean().tanpaNomor.length;
+  openModal('Antrean Selesai', `
+    <p class="text-sm text-slate-700"><strong>${w.ok}</strong> pesan ditandai terkirim, <strong>${w.lewat}</strong> dilewati.</p>
+    ${tanpa ? `<p class="text-xs text-rose-500 mt-2">${tanpa} siswa belum punya nomor WA. Isi nomornya di kartu siswa di bawah atau di menu Data Siswa.</p>` : ''}
+  `, `<button onclick="tutupAntreanWaManual()" class="btn-primary px-4 py-2.5 rounded-xl text-sm">Tutup</button>`);
+}
+
+async function kirimWaTes(){
+  if(!requireEdit()) return;
+  const nomor = (document.getElementById('waTesNomor')||{}).value || '';
+  if(!normalizeNomorWa(nomor)){ showToast('Isi nomor WhatsApp yang valid untuk tes.', 'error'); return; }
+  showToast('Mengirim pesan tes...', 'info');
+  try{
+    const res = await rpc('kirim_wa_satu', { p_token:getToken()||'', p_nomor:nomor, p_pesan:'Tes SIKasapa SDN 01 Papahan: pengiriman WhatsApp otomatis berfungsi.' });
+    if(res && res.ok) showToast('Pesan tes terkirim. Periksa WhatsApp nomor tersebut.');
+    else showToast('Tes gagal: ' + ((res && res.error) || 'tidak diketahui'), 'error');
+  }catch(e){ showToast('Tes gagal: ' + e.message, 'error'); }
+}
+
+function bukaKonfirmasiWaMassal(){
+  if(!requireEdit() || waMassalJalan) return;
+  const r = waRingkasanAntrean();
+  const n = Math.min(r.belum.length, WA_MASSAL_MAKS);
+  if(!n){ showToast('Tidak ada pesan yang perlu dikirim.', 'info'); return; }
+  const rata = (WA_MASSAL_JEDA_MS[0] + WA_MASSAL_JEDA_MS[1]) / 2;
+  const menit = Math.max(1, Math.round(n * rata / 60000));
+  const nomorUnik = new Set(r.belum.slice(0, n).map(d=>normalizeNomorWa(d.nomor))).size;
+  openModal('Kirim Pengingat ke Semua Tunggakan', `
+    <p class="text-sm text-slate-700"><strong>${n} pesan</strong> akan dikirim ke <strong>${nomorUnik} nomor</strong> wali murid, dengan jeda ${WA_MASSAL_JEDA_MS[0]/1000}–${WA_MASSAL_JEDA_MS[1]/1000} detik antar pesan (sekitar ${menit} menit).</p>
+    <ul class="text-xs text-slate-500 mt-3 space-y-1 list-disc pl-4">
+      <li>Biarkan halaman ini terbuka. Menutup jendela progres akan menghentikan pengiriman.</li>
+      <li>Siswa tanpa nomor WA (${r.tanpaNomor.length}) dan yang sudah terkirim hari ini (${r.jumlahSudah}) dilewati.</li>
+      ${r.belum.length > n ? `<li>Maksimal ${WA_MASSAL_MAKS} pesan per proses; sisanya ${r.belum.length - n} bisa dikirim setelah ini selesai.</li>` : ''}
+      <li>Pesan dikirim lewat gateway tidak resmi. Gunakan nomor khusus pengirim dan jangan mengirim berulang-ulang dalam sehari.</li>
+    </ul>
+    <label class="flex items-start gap-2 mt-4 text-xs text-slate-600 cursor-pointer">
+      <input id="waMassalSetuju" type="checkbox" class="accent-blue-600 mt-0.5">
+      <span>Saya sudah memeriksa template pesan dan nomor WA, dan setuju pesan dikirim ke wali murid.</span>
+    </label>
+  `, `
+    <button onclick="closeModal()" class="btn-secondary px-4 py-2.5 rounded-xl text-sm">Batal</button>
+    <button onclick="mulaiWaMassal()" class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"><i data-lucide="send" class="w-4 h-4"></i>Mulai Kirim</button>
+  `);
+}
+
+function waTunggu(ms){ return new Promise(res=> setTimeout(res, ms)); }
+
+async function mulaiWaMassal(){
+  if(!requireEdit() || waMassalJalan) return;
+  const cb = document.getElementById('waMassalSetuju');
+  if(!cb || !cb.checked){ showToast('Centang pernyataan persetujuan dulu.', 'error'); return; }
+  const antrean = waRingkasanAntrean().belum.slice(0, WA_MASSAL_MAKS);
+  if(!antrean.length) return;
+  waMassalJalan = true; waMassalBerhenti = false;
+  openModal('Mengirim Pengingat WhatsApp', `
+    <p id="waMassalStatus" class="text-sm text-slate-700">Menyiapkan...</p>
+    <div class="h-2.5 rounded-full bg-slate-100 overflow-hidden my-3"><div id="waMassalBar" class="h-full rounded-full" style="width:0%; background:linear-gradient(90deg,#1D5FD6,#2563EB); transition:width .3s ease"></div></div>
+    <p class="text-xs text-slate-500"><span id="waMassalOk" class="font-bold text-emerald-600">0</span> terkirim &middot; <span id="waMassalGagal" class="font-bold text-rose-500">0</span> gagal &middot; dari ${antrean.length}</p>
+    <ul id="waMassalGalat" class="text-[11px] text-rose-500 space-y-1 mt-3 max-h-32 overflow-y-auto"></ul>
+  `, `<button id="waMassalStop" onclick="hentikanWaMassal()" class="btn-secondary px-4 py-2.5 rounded-xl text-sm">Hentikan</button>`);
+
+  let ok = 0, gagal = 0, beruntun = 0, alasanBerhenti = '';
+  const galat = [];
+  const set = (id, fn)=>{ const el = document.getElementById(id); if(el) fn(el); return !!el; };
+  for(let i = 0; i < antrean.length; i++){
+    if(waMassalBerhenti) break;
+    if(!document.getElementById('waMassalStatus')){ waMassalBerhenti = true; alasanBerhenti = 'Jendela progres ditutup.'; break; }
+    const d = antrean[i];
+    set('waMassalStatus', el=> el.textContent = `Mengirim ${i+1} dari ${antrean.length}: ${d.nama} (${d.ekskul})`);
+    let res;
+    try{ res = await rpc('kirim_wa_satu', { p_token:getToken()||'', p_nomor:d.nomor, p_pesan:d.pesan }); }
+    catch(e){ res = { ok:false, error:e.message }; }
+    if(res && res.ok){ ok++; beruntun = 0; catatPengingatServer(d.siswaId, d.ekskulId, 'pengingat', 'otomatis'); }
+    else {
+      gagal++; beruntun++;
+      const alasan = (res && res.error) || 'gagal';
+      galat.push(`${d.nama}: ${alasan}`);
+      set('waMassalGalat', el=> el.insertAdjacentHTML('beforeend', `<li>${escapeHtml(d.nama)}: ${escapeHtml(alasan)}</li>`));
+      if(res && (res.code === 'GATEWAY_BELUM_DIATUR' || res.code === 'WAJIB_GANTI_PASSWORD' || /disconnect|token/i.test(alasan))){ alasanBerhenti = alasan; break; }
+      if(beruntun >= 5){ alasanBerhenti = '5 pesan berturut-turut gagal, pengiriman dihentikan.'; break; }
+    }
+    set('waMassalOk', el=> el.textContent = ok);
+    set('waMassalGagal', el=> el.textContent = gagal);
+    set('waMassalBar', el=> el.style.width = Math.round(((i+1)/antrean.length)*100) + '%');
+    if(i < antrean.length - 1 && !waMassalBerhenti){
+      const [a, b] = WA_MASSAL_JEDA_MS;
+      await waTunggu(a + Math.random() * (b - a));
+    }
+  }
+  const dihentikan = waMassalBerhenti || !!alasanBerhenti;
+  waMassalJalan = false;
+  logCetak('Kirim Pengingat WA Massal', `${ok} terkirim, ${gagal} gagal${dihentikan ? ' (dihentikan)' : ''}`);
+  if(document.getElementById('waMassalStatus')){
+    set('waMassalStatus', el=> el.textContent = dihentikan ? `Dihentikan. ${alasanBerhenti || 'Dihentikan oleh pengguna.'}` : 'Selesai.');
+    set('waMassalStop', el=>{ el.textContent = 'Tutup'; el.setAttribute('onclick','closeModal()'); });
+  }
+  showToast(`Pengiriman ${dihentikan ? 'dihentikan' : 'selesai'}: ${ok} terkirim, ${gagal} gagal.`, gagal ? 'info' : 'success');
+  muatPanelWaMassal();
+}
+
+function hentikanWaMassal(){
+  waMassalBerhenti = true;
+  const el = document.getElementById('waMassalStatus');
+  if(el) el.textContent = 'Menghentikan setelah pesan ini selesai...';
 }
 
 function renderPengingat(){
@@ -3091,9 +3559,11 @@ function renderPengingat(){
       </div>
       <div class="flex-1 min-w-0">
         <p class="font-bold text-sm">Pengingat pembayaran lewat WhatsApp</p>
-        <p class="text-xs text-slate-500 mt-1">${totalBulanan} siswa nunggak Bulanan (dicek ${JENDELA_BULAN_TUNGGAKAN_BULANAN} bulan terakhir)${adaEkPertemuan ? `, ${totalPertemuan} siswa berpotensi kurang bayar Per Pertemuan` : ''}. Pesan disusun otomatis dari template di bawah — lengkap dengan rincian bulan (Bulanan) atau bulan/minggu/hari pertemuan (Per Pertemuan) yang belum dibayar — tapi tetap perlu Anda tekan tombol Kirim di WhatsApp untuk tiap wali murid (aplikasi tidak terhubung ke WhatsApp Business API). Nomor WA diisi/dikoreksi manual di sini.</p>
+        <p class="text-xs text-slate-500 mt-1">${totalBulanan} siswa nunggak Bulanan (dicek ${JENDELA_BULAN_TUNGGAKAN_BULANAN} bulan terakhir)${adaEkPertemuan ? `, ${totalPertemuan} siswa berpotensi kurang bayar Per Pertemuan` : ''}. Pesan disusun otomatis dari template di bawah — lengkap dengan rincian bulan (Bulanan) atau bulan/minggu/hari pertemuan (Per Pertemuan) yang belum dibayar — dan nomor WA diambil dari Data Siswa (bisa dikoreksi manual di sini). Tombol Kirim di tiap baris membuka WhatsApp untuk dikirim manual; untuk mengirim ke semua sekaligus, pakai panel Kirim ke Semua Tunggakan di bawah (manual satu per satu atau otomatis).</p>
       </div>
     </div>
+
+    <div id="waMassalPanel" class="mb-5"></div>
 
     <details class="glass-strong rounded-3xl p-5 mb-5">
       <summary class="text-sm font-bold cursor-pointer flex items-center gap-2"><i data-lucide="message-square-text" class="w-4 h-4"></i>Atur Template Pesan</summary>
@@ -3118,6 +3588,9 @@ function renderPengingat(){
       ${(rekapBulanan.length===0 && rekapPertemuan.length===0) ? `<p class="text-sm text-slate-500 col-span-full text-center py-10">Tidak ada tunggakan Bulanan maupun Per Pertemuan yang terdeteksi.</p>` : ''}
     </div>
   `;
+
+  muatPanelWaMassal();
+  muatPengingatLog().then(ok=>{ if(ok && currentView==='pengingat') perbaruiCatatanPengingat(); });
 }
 
 /* =========================================================
@@ -4152,8 +4625,10 @@ function renderSiswa(){
         <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
         <input id="siswaSearchInput" type="text" value="${escapeHtml(siswaSearchQuery)}" placeholder="Cari nama atau kelas siswa..." class="input-glass w-full rounded-xl pl-10 pr-3.5 py-2.5 text-sm">
       </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <button onclick="exportSiswaCSV()" class="glass px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2"><i data-lucide="file-down" class="w-4 h-4"></i>Ekspor CSV</button>
+      <div class="flex flex-wrap items-center gap-2 shrink-0">
+        <button onclick="exportSiswaExcel()" class="glass px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2"><i data-lucide="file-down" class="w-4 h-4"></i>Ekspor</button>
+        ${canEdit() ? `<button onclick="pilihFileImporSiswa()" class="glass px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2"><i data-lucide="file-up" class="w-4 h-4"></i>Impor</button>
+        <button onclick="downloadTemplateSiswa()" class="glass px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 flex items-center gap-2"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Template</button>` : ''}
         <button onclick="openSemuaSiswaModal()" class="${canEdit()?'btn-primary':'glass text-slate-600'} px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2"><i data-lucide="list" class="w-4 h-4"></i>${canEdit()?'Kelola':'Lihat'} Semua Siswa</button>
       </div>
     </div>
@@ -4360,6 +4835,297 @@ function exportSiswaCSV(){
   });
   downloadCSV(`sikasapa-data-siswa-${tanggalFileNow()}.csv`, rows);
   catatAktivitas('Ekspor CSV', `Data Siswa — ${rows.length-1} baris`);
+}
+
+/* =========================================================
+   EKSPOR / IMPOR / TEMPLATE EXCEL — Data Siswa
+   Kolom (urutan sama untuk ekspor & template, jadi hasil ekspor
+   bisa diedit lalu diimpor kembali):
+   Nama | Kelas | Ekstrakurikuler | Nama Wali | No. HP Wali | Tanggal Gabung | Status
+   ========================================================= */
+const SISWA_XLSX_HEADER = ['Nama','Kelas','Ekstrakurikuler','Nama Wali','No. HP Wali','Tanggal Gabung','Status'];
+const SISWA_XLSX_LEBAR = [28,10,34,24,16,16,10];
+
+function siswaXlsxTersedia(){
+  if(typeof XLSX === 'undefined'){
+    showToast('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.', 'error');
+    return false;
+  }
+  return true;
+}
+
+function siswaXlsxSimpan(wb, namaFile){
+  XLSX.writeFile(wb, namaFile);
+}
+
+function exportSiswaExcel(){
+  if(typeof XLSX === 'undefined'){ exportSiswaCSV(); return; }
+  const rows = [SISWA_XLSX_HEADER];
+  DB.siswa.slice().sort((a,b)=>a.nama.localeCompare(b.nama)).forEach(s=>{
+    const ekNama = s.ekskulIds.map(id=>ekskulById(id)?.nama).filter(Boolean).join('; ');
+    rows.push([s.nama, s.kelas, ekNama, s.waliNama||'', String(s.waliHp||''), s.tanggalGabung||'', s.aktif===false ? 'Nonaktif' : 'Aktif']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = SISWA_XLSX_LEBAR.map(w=>({ wch:w }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Siswa');
+  siswaXlsxSimpan(wb, `sikasapa-data-siswa-${tanggalFileNow()}.xlsx`);
+  catatAktivitas('Ekspor Excel', `Data Siswa — ${rows.length-1} baris`);
+  showToast(`${rows.length-1} siswa diekspor ke Excel.`);
+}
+
+function downloadTemplateSiswa(){
+  if(!siswaXlsxTersedia()) return;
+  const wsData = XLSX.utils.aoa_to_sheet([SISWA_XLSX_HEADER]);
+  wsData['!cols'] = SISWA_XLSX_LEBAR.map(w=>({ wch:w }));
+  const ekContoh = DB.ekskul[0]?.nama || 'Pramuka';
+  const ekContoh2 = DB.ekskul[1]?.nama || 'Futsal';
+  const petunjuk = [
+    ['PETUNJUK PENGISIAN'],
+    [''],
+    ['1. Isi data siswa di sheet "Data Siswa", satu siswa per baris, mulai baris ke-2. Jangan ubah judul kolom.'],
+    ['2. Kolom Nama dan Kelas wajib diisi. Kolom lain boleh dikosongkan.'],
+    ['3. Ekstrakurikuler: tulis nama persis seperti daftar di bawah. Lebih dari satu dipisah titik koma (;).'],
+    ['4. No. HP Wali: format teks, contoh 081234567890.'],
+    ['5. Tanggal Gabung: format TTTT-BB-HH (contoh 2026-07-15) atau HH/BB/TTTT. Kosong = otomatis hari ini untuk siswa baru.'],
+    ['6. Status: Aktif atau Nonaktif. Kosong = Aktif untuk siswa baru, tidak berubah untuk siswa lama.'],
+    ['7. Siswa dengan Nama dan Kelas yang sudah ada akan DIPERBARUI (ekskul ditambahkan, tidak ada yang dihapus). Selain itu dibuat baru.'],
+    [''],
+    ['CONTOH BARIS'],
+    SISWA_XLSX_HEADER,
+    ['Ahmad Fauzi','V A', `${ekContoh}; ${ekContoh2}`, 'Budi Santoso', '081234567890', '2026-07-15', 'Aktif'],
+    [''],
+    ['DAFTAR EKSTRAKURIKULER SAAT INI'],
+    ...(DB.ekskul.length ? DB.ekskul.map(e=>[e.nama]) : [['(belum ada ekstrakurikuler)']]),
+  ];
+  const wsInfo = XLSX.utils.aoa_to_sheet(petunjuk);
+  wsInfo['!cols'] = [{ wch:34 },{ wch:10 },{ wch:34 },{ wch:24 },{ wch:16 },{ wch:16 },{ wch:10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsData, 'Data Siswa');
+  XLSX.utils.book_append_sheet(wb, wsInfo, 'Petunjuk');
+  siswaXlsxSimpan(wb, 'template-impor-data-siswa.xlsx');
+  showToast('Template impor diunduh.');
+}
+
+/* ---------- IMPOR ---------- */
+let siswaImporPending = null;
+
+function pilihFileImporSiswa(){
+  if(!requireEdit()) return;
+  if(!siswaXlsxTersedia()) return;
+  let input = document.getElementById('siswaImporFile');
+  if(!input){
+    input = document.createElement('input');
+    input.type = 'file'; input.id = 'siswaImporFile';
+    input.accept = '.xlsx,.xls,.csv';
+    input.style.display = 'none';
+    input.addEventListener('change', ()=>{
+      const f = input.files && input.files[0];
+      input.value = '';
+      if(f) bacaFileImporSiswa(f);
+    });
+    document.body.appendChild(input);
+  }
+  input.click();
+}
+
+function bacaFileImporSiswa(file){
+  const isCsv = /\.csv$/i.test(file.name);
+  const reader = new FileReader();
+  reader.onerror = ()=> showToast('File tidak dapat dibaca.', 'error');
+  reader.onload = ()=>{
+    try{
+      const wb = isCsv
+        ? XLSX.read(String(reader.result).replace(/^\ufeff/, ''), { type:'string', cellDates:true })
+        : XLSX.read(reader.result, { type:'array', cellDates:true });
+      const nmSheet = wb.SheetNames.find(n=>n.trim().toLowerCase()==='data siswa') || wb.SheetNames[0];
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nmSheet], { header:1, raw:true, defval:'' });
+      siswaImporPending = susunRencanaImporSiswa(aoa);
+      tampilkanPratinjauImporSiswa(file.name);
+    }catch(e){
+      console.error(e);
+      showToast('File tidak dapat diproses. Pastikan formatnya .xlsx, .xls, atau .csv.', 'error');
+    }
+  };
+  if(isCsv) reader.readAsText(file); else reader.readAsArrayBuffer(file);
+}
+
+function siswaImporNormTeks(v){ return String(v==null ? '' : v).replace(/\s+/g,' ').trim(); }
+
+function siswaImporTanggal(v){
+  if(v == null || v === '') return '';
+  const pad = n => String(n).padStart(2,'0');
+  if(v instanceof Date && !isNaN(v)){
+    // +12 jam agar selisih zona waktu kecil dari pustaka tidak menggeser tanggal
+    const d = new Date(v.getTime() + 12*3600*1000);
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+  if(typeof v === 'number'){
+    const d = new Date(Math.round((v - 25569) * 86400000));
+    return isNaN(d) ? null : `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
+  }
+  const t = String(v).trim();
+  let m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if(m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if(m) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+  return null; // tidak dikenali
+}
+
+function siswaImporEkskul(teks, peta){
+  const hasil = [], tidakDikenal = [];
+  const cocok = (t)=>{ const e = peta[t.toLowerCase()]; if(e){ if(!hasil.includes(e.id)) hasil.push(e.id); return true; } return false; };
+  siswaImporNormTeks(teks).split(/[;|\n]+/).map(siswaImporNormTeks).filter(Boolean).forEach(tok=>{
+    if(cocok(tok)) return;
+    // cadangan: hasil ekspor CSV lama memakai " & " atau koma sebagai pemisah
+    const bagian = tok.split(/\s+&\s+|,/).map(siswaImporNormTeks).filter(Boolean);
+    if(bagian.length > 1 && bagian.every(b=>peta[b.toLowerCase()])) bagian.forEach(cocok);
+    else if(tok !== '-') tidakDikenal.push(tok);
+  });
+  return { ids:hasil, tidakDikenal };
+}
+
+function susunRencanaImporSiswa(aoa){
+  const peta = {};
+  DB.ekskul.forEach(e=>{ peta[siswaImporNormTeks(e.nama).toLowerCase()] = e; });
+  const hIdx = aoa.findIndex(r => r.some(c => /^nama(\s+siswa)?$/i.test(siswaImporNormTeks(c))));
+  if(hIdx < 0) return { fatal:'Judul kolom tidak ditemukan. Gunakan template dari tombol "Template".' };
+  const kol = {};
+  aoa[hIdx].forEach((c,i)=>{
+    const h = siswaImporNormTeks(c).toLowerCase();
+    if(!h) return;
+    if(/hp|telp|telepon|wa\b|whatsapp/.test(h)) kol.hp ??= i;
+    else if(h.includes('wali')) kol.wali ??= i;
+    else if(/^nama/.test(h)) kol.nama ??= i;
+    else if(h.includes('kelas')) kol.kelas ??= i;
+    else if(/ekstra|ekskul/.test(h)) kol.ekskul ??= i;
+    else if(h.includes('gabung')) kol.gabung ??= i;
+    else if(h.includes('status')) kol.status ??= i;
+  });
+  if(kol.nama == null || kol.kelas == null) return { fatal:'Kolom "Nama" dan "Kelas" wajib ada di file.' };
+
+  const entri = new Map(); // kunci nama|kelas -> entri
+  const masalah = [];
+  let baris = 0;
+  for(let r = hIdx+1; r < aoa.length; r++){
+    const row = aoa[r];
+    if(!row || row.every(c => siswaImporNormTeks(c) === '')) continue;
+    baris++;
+    const noBaris = r + 1;
+    const nama = siswaImporNormTeks(row[kol.nama]);
+    const kelas = siswaImporNormTeks(row[kol.kelas]);
+    if(!nama || !kelas){ masalah.push({ baris:noBaris, pesan:'Nama atau Kelas kosong, baris dilewati.', fatal:true }); continue; }
+
+    let hp = kol.hp != null ? row[kol.hp] : '';
+    if(typeof hp === 'number') hp = String(hp).replace(/\.0+$/,'');
+    hp = siswaImporNormTeks(hp);
+    if(hp && /^8\d{7,}$/.test(hp)) hp = '0' + hp; // Excel membuang angka 0 di depan
+
+    const tglMentah = kol.gabung != null ? row[kol.gabung] : '';
+    let tgl = siswaImporTanggal(tglMentah);
+    if(tgl === null){ masalah.push({ baris:noBaris, pesan:`Tanggal Gabung "${siswaImporNormTeks(tglMentah)}" tidak dikenali, diabaikan.` }); tgl = ''; }
+
+    const stMentah = kol.status != null ? siswaImporNormTeks(row[kol.status]).toLowerCase() : '';
+    let aktif = null;
+    if(stMentah){
+      if(/^(non ?aktif|tidak aktif|keluar|pindah|lulus)/.test(stMentah)) aktif = false;
+      else if(/^(aktif|ya)/.test(stMentah)) aktif = true;
+      else masalah.push({ baris:noBaris, pesan:`Status "${stMentah}" tidak dikenali, diabaikan.` });
+    }
+
+    const ek = kol.ekskul != null ? siswaImporEkskul(row[kol.ekskul], peta) : { ids:[], tidakDikenal:[] };
+    ek.tidakDikenal.forEach(n=> masalah.push({ baris:noBaris, pesan:`Ekstrakurikuler "${n}" tidak ada di sistem, diabaikan.` }));
+
+    const kunci = nama.toLowerCase() + '|' + kelas.toLowerCase();
+    let e = entri.get(kunci);
+    if(!e){
+      const ada = DB.siswa.find(s => s.nama.toLowerCase()===nama.toLowerCase() && s.kelas.toLowerCase()===kelas.toLowerCase());
+      e = { nama, kelas, existing: ada || null, waliNama:'', waliHp:'', tanggalGabung:'', aktif:null, ekskulIds:[] };
+      entri.set(kunci, e);
+    } else {
+      masalah.push({ baris:noBaris, pesan:`"${nama}" (${kelas}) muncul lebih dari sekali di file, datanya digabung.` });
+    }
+    const waliNama = kol.wali != null ? siswaImporNormTeks(row[kol.wali]) : '';
+    if(waliNama) e.waliNama = waliNama;
+    if(hp) e.waliHp = hp;
+    if(tgl) e.tanggalGabung = tgl;
+    if(aktif !== null) e.aktif = aktif;
+    ek.ids.forEach(id=>{ if(!e.ekskulIds.includes(id)) e.ekskulIds.push(id); });
+  }
+  const daftar = [...entri.values()];
+  return {
+    daftar,
+    baru: daftar.filter(e=>!e.existing).length,
+    diperbarui: daftar.filter(e=>e.existing).length,
+    dilewati: masalah.filter(m=>m.fatal).length,
+    masalah,
+    totalBaris: baris,
+  };
+}
+
+function tampilkanPratinjauImporSiswa(namaFile){
+  const p = siswaImporPending;
+  if(!p) return;
+  if(p.fatal){
+    openModal('Impor Data Siswa', `<p class="text-sm text-slate-600">${escapeHtml(p.fatal)}</p>`,
+      `<button onclick="closeModal()" class="btn-secondary px-4 py-2.5 rounded-xl text-sm">Tutup</button>
+       <button onclick="downloadTemplateSiswa()" class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Unduh Template</button>`);
+    return;
+  }
+  const bisaImpor = p.daftar.length > 0;
+  const stat = (label, nilai, warna)=>`<div class="glass rounded-xl px-3 py-2.5 text-center"><p class="text-lg font-bold" style="color:${warna}">${nilai}</p><p class="text-[11px] text-slate-500">${label}</p></div>`;
+  const tampil = p.masalah.slice(0, 8);
+  openModal('Impor Data Siswa', `
+    <p class="text-xs text-slate-500 mb-3 truncate">File: ${escapeHtml(namaFile)} &middot; ${p.totalBaris} baris terbaca</p>
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      ${stat('Siswa baru', p.baru, '#059669')}
+      ${stat('Diperbarui', p.diperbarui, '#2563EB')}
+      ${stat('Dilewati', p.dilewati, p.dilewati ? '#E11D48' : '#94A3B8')}
+    </div>
+    ${p.masalah.length ? `
+      <p class="text-xs font-semibold text-slate-600 mb-1.5">Catatan (${p.masalah.length})</p>
+      <ul class="text-[11px] text-slate-500 space-y-1 max-h-36 overflow-y-auto mb-3">
+        ${tampil.map(m=>`<li>Baris ${m.baris}: ${escapeHtml(m.pesan)}</li>`).join('')}
+        ${p.masalah.length > tampil.length ? `<li>+${p.masalah.length - tampil.length} catatan lainnya</li>` : ''}
+      </ul>` : ''}
+    <p class="text-[11px] text-slate-400">Siswa lama (Nama &amp; Kelas sama) hanya diperbarui datanya dan ditambahkan ke ekskul yang tertulis; tidak ada ekskul atau siswa yang dihapus.</p>
+  `, `
+    <button onclick="closeModal()" class="btn-secondary px-4 py-2.5 rounded-xl text-sm">Batal</button>
+    ${bisaImpor ? `<button onclick="prosesImporSiswa()" class="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>Impor ${p.daftar.length} Siswa</button>` : ''}
+  `);
+}
+
+function prosesImporSiswa(){
+  if(!requireEdit()) return;
+  const p = siswaImporPending;
+  if(!p || !p.daftar || !p.daftar.length) return;
+  let baru = 0, diperbarui = 0;
+  p.daftar.forEach(e=>{
+    if(e.existing){
+      const s = e.existing;
+      if(e.waliNama) s.waliNama = e.waliNama;
+      if(e.waliHp) s.waliHp = e.waliHp;
+      if(e.tanggalGabung) s.tanggalGabung = e.tanggalGabung;
+      if(e.aktif !== null) s.aktif = e.aktif;
+      e.ekskulIds.forEach(id=>{ if(!s.ekskulIds.includes(id)) s.ekskulIds.push(id); });
+      diperbarui++;
+    } else {
+      DB.siswa.push({
+        id:uid('sw'), nama:e.nama, kelas:e.kelas, waliNama:e.waliNama, waliHp:e.waliHp,
+        tanggalGabung: e.tanggalGabung || hariIniStr(), ekskulIds:e.ekskulIds.slice(),
+        aktif: e.aktif !== false, ekstraAbsensiIds:[]
+      });
+      baru++;
+    }
+  });
+  siswaImporPending = null;
+  syncSemuaPesertaAbsensiDariEkskul();
+  catatAktivitas('Impor Data Siswa', `${baru} baru, ${diperbarui} diperbarui`);
+  saveDB(DB);
+  closeModal();
+  showToast(`Impor selesai: ${baru} siswa baru, ${diperbarui} diperbarui.`);
+  renderView('siswa');
+  renderNav();
 }
 
 function openSiswaEkskulManage(ekId){
@@ -6295,7 +7061,7 @@ function renderPengaturan(){
         <h3 class="font-bold text-sm mb-4 flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4" style="color:var(--amber-400)"></i>Akun Login — Bendahara</h3>
         <form id="formAkun" class="space-y-4">
           <div>${fieldLabel('Username')}<input id="pgUsername" type="text" value="${escapeHtml(pg.username)}" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm"></div>
-          <div>${fieldLabel('Password Baru (kosongkan jika tidak diubah, min. 6 karakter)')}<input id="pgPassword" type="password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="••••••••"></div>
+          <div>${fieldLabel('Password Baru (kosongkan jika tidak diubah, min. 6 karakter)')}${pwWrap('<input id="pgPassword" type="password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="••••••••">')}</div>
         </form>
       </div>
 
@@ -6304,7 +7070,7 @@ function renderPengaturan(){
         <form id="formAkunKepsek" class="space-y-4">
           <div>${fieldLabel('Nama Kepala Sekolah (untuk log aktivitas)')}<input id="pgNamaKepsekAkun" type="text" value="${escapeHtml(pg.namaKepsekAkun||'')}" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm"></div>
           <div>${fieldLabel('Username')}<input id="pgUsernameKepsek" type="text" value="${escapeHtml(pg.usernameKepsek)}" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm"></div>
-          <div>${fieldLabel('Password Baru (kosongkan jika tidak diubah, min. 6 karakter)')}<input id="pgPasswordKepsek" type="password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="••••••••"></div>
+          <div>${fieldLabel('Password Baru (kosongkan jika tidak diubah, min. 6 karakter)')}${pwWrap('<input id="pgPasswordKepsek" type="password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="••••••••">')}</div>
           <p class="text-[11px] text-slate-400">Akun ini hanya bisa melihat data (Dashboard, Laporan, Tunggakan, Log Aktivitas, dll) — tidak bisa menambah, mengubah, atau menghapus data.</p>
         </form>
       </div>
@@ -6664,7 +7430,7 @@ function openGuruForm(id){
         <input id="guUsername" type="text" required value="${escapeHtml(g?.username||'')}" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="username login">
       </div>
       <div>${fieldLabel(g ? 'Password Baru (kosongkan jika tidak diubah, min. 6 karakter)' : 'Password (min. 6 karakter)')}
-        <input id="guPassword" type="password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="••••••••">
+        ${pwWrap('<input id="guPassword" type="password" class="input-glass w-full rounded-xl px-3.5 py-2.5 text-sm" placeholder="••••••••">')}
       </div>
       <div>${fieldLabel('Ditugaskan ke Ekstrakurikuler')}
         <div class="flex flex-wrap gap-2">
@@ -7149,6 +7915,43 @@ async function initPublicPage(){
 }
 
 /* ---- login.html ---- */
+/* =========================================================
+   TOMBOL LIHAT/SEMBUNYIKAN PASSWORD (dipakai di semua field password)
+   Pemakaian: pwWrap('<input type="password" ...>') untuk template JS.
+   Untuk HTML statis, pakai markup yang sama (lihat login.html & admin.html).
+   Klik ditangani sekali di document (delegasi), jadi berlaku juga untuk
+   form yang dirender ulang.
+   ========================================================= */
+const PW_ICON_SHOW = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const PW_ICON_HIDE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function pwEyeBtnHtml(){
+  return '<button type="button" class="pw-eye" aria-label="Tampilkan password" aria-pressed="false" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:0;background:transparent;color:#94A3B8;cursor:pointer;">' + PW_ICON_SHOW + '</button>';
+}
+function pwWrap(inputTag){
+  // Input dapat lebar penuh; padding kanan disisakan untuk tombol mata.
+  const dengan = inputTag.replace('<input ', '<input style="padding-right:46px" ');
+  return '<div style="position:relative;">' + dengan + pwEyeBtnHtml() + '</div>';
+}
+document.addEventListener('click', function(e){
+  const btn = e.target && e.target.closest ? e.target.closest('.pw-eye') : null;
+  if(!btn) return;
+  e.preventDefault();
+  const input = btn.parentElement ? btn.parentElement.querySelector('input') : null;
+  if(!input) return;
+  const tampil = input.type === 'password';
+  input.type = tampil ? 'text' : 'password';
+  btn.setAttribute('aria-pressed', String(tampil));
+  btn.setAttribute('aria-label', tampil ? 'Sembunyikan password' : 'Tampilkan password');
+  btn.innerHTML = tampil ? PW_ICON_HIDE : PW_ICON_SHOW;
+  btn.style.color = tampil ? '#1D4ED8' : '#94A3B8';
+  input.focus({ preventScroll: true });
+});
+(function(){
+  const st = document.createElement('style');
+  st.textContent = '.pw-eye:hover{background:rgba(15,30,61,.06)!important;color:#334155!important}.pw-eye:focus-visible{outline:2px solid rgba(37,99,235,.5);outline-offset:1px}';
+  document.head.appendChild(st);
+})();
+
 function initLoginPage(){
   safeIcons();
   document.getElementById('formLogin').addEventListener('submit', handleLoginSubmit);
@@ -7198,6 +8001,7 @@ async function initAdminPage(){
   // Guru ekstra cuma punya menu "Kelola Absensi" — arahkan ke situ,
   // bukan ke dashboard yang memang tidak ada di menunya.
   const menuAwal = menusForRole()[0];
+  muatPengingatLog();
   navigate(menuAwal ? menuAwal.id : 'dashboard');
   // Tampilkan aplikasi (disembunyikan dulu di HTML agar tidak "berkedip"
   // sebelum data & sesi selesai divalidasi di atas).

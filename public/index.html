@@ -441,20 +441,41 @@
     #pubBottomNav .bn-item.active:active .bn-ic{ transform:translateY(-27px) scale(.92); }
     #toast{ bottom:calc(104px + env(safe-area-inset-bottom,0px)) !important; left:16px; right:16px !important; }
 
-    /* --- Perbaikan tata letak HP: panel tumbuh mengikuti isinya (tidak
-       terpotong), hero dirapatkan, dan konten terakhir (tombol) selalu
-       bisa di-scroll di atas bubble navigasi bawah. --- */
-    #publicScreen .pub-hero-inner{ display:flex; flex-direction:column; min-height:100%; }
-    #publicScreen .pub-panel{ flex:1 0 auto; }
-    #publicScreen .pub-hero-inner > div:first-child{ padding:10px 22px 40px; }
+    /* --- Tata letak HP (dirapikan): blok biru di atas MENYERAP sisa tinggi
+       layar dan isinya diletakkan di tengah, sedangkan lembar putih
+       (form pencarian) menempel di bawah dan hanya setinggi isinya +
+       ruang untuk bottom navigation. Dengan begitu tidak ada area
+       putih kosong di bawah tombol, dan layar pendek tetap bisa
+       di-scroll. --- */
+    #publicSearchPane{ display:block; }
+    #publicScreen .pub-hero-inner{ display:flex; flex-direction:column; min-height:100%; width:100%; }
+    #publicScreen .pub-hero-inner > div:first-child{
+      flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;
+      padding:12px 22px 46px;
+    }
+    #publicScreen .pub-eyebrow{ align-self:flex-start; margin-bottom:10px; }
     #publicScreen .pub-headline{ font-size:clamp(28px,8.4vw,34px); line-height:1.08; letter-spacing:-.02em; }
-    #publicScreen .pub-desc{ font-size:13.5px; line-height:1.6; margin-top:12px; }
-    #publicScreen .pub-trust-row{ gap:8px; margin-top:14px; }
-    #publicScreen .pub-trust-chip{ font-size:11px; padding:6px 11px; gap:6px; }
-    #publicScreen .pub-panel{ overflow:visible; margin-top:-28px; padding:24px 18px calc(128px + env(safe-area-inset-bottom,0px)); }
+    #publicScreen .pub-desc{
+      font-size:14px; line-height:1.6; margin-top:12px; max-width:none;
+      color:rgba(255,255,255,.8); text-wrap:pretty;
+    }
+    /* Tiga keunggulan dibuat kartu sama lebar (rapi, tidak ada chip yang
+       tertinggal sendirian di baris kedua). */
+    #publicScreen .pub-trust-row{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:14px; }
+    #publicScreen .pub-trust-chip{
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center;
+      gap:5px; padding:8px 6px 9px; border-radius:16px; font-size:10.5px; line-height:1.3; font-weight:600;
+    }
+    #publicScreen .pub-trust-chip i, #publicScreen .pub-trust-chip svg{ width:18px; height:18px; }
+    #publicScreen .pub-panel{
+      flex:0 0 auto; overflow:visible; margin-top:-28px;
+      padding:20px 18px calc(112px + env(safe-area-inset-bottom,0px));
+    }
     /* Layar HP pendek: deskripsi disembunyikan supaya tombol utama langsung
-       terlihat di atas bubble navigasi (pola yang sama dengan max-height:720px di desktop). */
+       terlihat di atas bubble navigasi bawah. */
     @media (max-height:860px){ #publicScreen .pub-desc{ display:none; } }
+    /* Aturan grid di atas menimpa aturan sembunyi global, jadi ditegaskan ulang di sini. */
+    @media (max-height:700px){ #publicScreen .pub-trust-row{ display:none; } }
   }
 </style>
 </head>

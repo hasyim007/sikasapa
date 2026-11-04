@@ -35,3 +35,10 @@
 - Impor menerima .xlsx/.xls/.csv, menampilkan pratinjau (baru / diperbarui / dilewati + catatan) sebelum disimpan.
 - Siswa dengan Nama & Kelas sama diperbarui (ekskul ditambah, tidak ada yang dihapus); ekskul yang tidak dikenal diabaikan.
 - Memakai SheetJS (xlsx 0.18.5) dari cdnjs, dimuat di admin.html. Jika gagal dimuat, Ekspor kembali ke CSV.
+
+## Halaman wali murid (index.html) di HP
+- Blok biru di atas kini menyerap sisa tinggi layar (isi di tengah), lembar putih form menempel di bawah:
+  tidak ada lagi area putih kosong di bawah tombol "Lihat Informasi Pembayaran".
+- Tiga keunggulan (Data Aman, Real-time, Tanpa Aplikasi) jadi tiga kartu sama lebar; deskripsi dirapikan (14px, rata-rata 4 baris).
+- Layar pendek: deskripsi disembunyikan di tinggi <= 860px, kartu keunggulan di <= 700px, supaya tombol utama selalu
+  terlihat di atas navigasi bawah. Hanya CSS HP (< 640px) di index.html yang berubah; tampilan desktop/tablet tetap.
